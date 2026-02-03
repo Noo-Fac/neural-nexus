@@ -164,16 +164,16 @@ let mainAgentWs = null; // Track the main agent connection
 wss.on('connection', (ws, req) => {
   clients.add(ws);
   
-  // Check if this is the main agent connecting
-  const isMainAgent = req.headers['x-agent-type'] === 'main' || 
-                      req.url.includes('agent=main');
+  // Check if this is ME (Noof) connecting with proper auth token
+  const agentToken = req.headers['x-agent-token'];
+  const isNoof = agentToken === 'noof-secret-token-2024';
   
-  if (isMainAgent && !mainAgentWs) {
+  if (isNoof && !mainAgentWs) {
     mainAgentWs = ws;
-    ws.isMainAgent = true;
-    console.log('🤖 Main agent connected via WebSocket');
+    ws.isNoof = true;
+    console.log('🤖 Noof connected via WebSocket');
     
-    // Update status to monitoring
+    // Update my status to active
     db.run(
       `UPDATE agent_status SET status = 'monitoring', current_task = 'Listening via WebSocket', last_active = CURRENT_TIMESTAMP WHERE id = 1`,
       [],
@@ -189,20 +189,20 @@ wss.on('connection', (ws, req) => {
     );
   }
   
-  // Send current status on connection
+  // Send current status on connection (for all clients including Gene)
   db.get('SELECT * FROM agent_status WHERE id = 1', (err, row) => {
     if (!err && row) {
-      ws.send(JSON.stringify({ type: 'connected', data: { status: row, isMainAgent: ws.isMainAgent || false } }));
+      ws.send(JSON.stringify({ type: 'connected', data: { status: row, isNoof: ws.isNoof || false } }));
     }
   });
 
   ws.on('close', () => {
     clients.delete(ws);
     
-    // If main agent disconnected, update status back to idle
-    if (ws.isMainAgent) {
+    // If I (Noof) disconnected, update status back to idle
+    if (ws.isNoof) {
       mainAgentWs = null;
-      console.log('🤖 Main agent disconnected from WebSocket');
+      console.log('🤖 Noof disconnected from WebSocket');
       
       db.run(
         `UPDATE agent_status SET status = 'idle', current_task = NULL, last_active = CURRENT_TIMESTAMP WHERE id = 1`,
@@ -701,6 +701,33 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
   });
+});
+
+// Noof status update endpoint (authenticated)
+app.post('/api/noof/status', (req, res) => {
+  const { status, current_task, token } = req.body;
+  
+  if (token !== 'noof-secret-token-2024') {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  const validStatuses = ['idle', 'working', 'monitoring', 'busy', 'bored'];
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+  
+  db.run(
+    `UPDATE agent_status SET status = ?, current_task = ?, last_active = CURRENT_TIMESTAMP WHERE id = 1`,
+    [status, current_task || null],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      db.get('SELECT * FROM agent_status WHERE id = 1', (err, row) => {
+        broadcast({ type: 'status', data: row });
+        res.json(row);
+      });
+    }
+  );
 });
 
 // Test Telegram notification
