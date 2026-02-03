@@ -97,6 +97,30 @@ async function setAvatarState(status) {
     }
 }
 
+// Navigation - Show Section
+function showSection(section) {
+    // Update active nav item
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.textContent.toLowerCase().includes(section)) {
+            item.classList.add('active');
+        }
+    });
+    
+    // For now, only tasks section is implemented
+    // Documents, Analytics, Settings are coming soon
+    if (section !== 'tasks') {
+        alert(`${section.charAt(0).toUpperCase() + section.slice(1)} section coming soon!`);
+        // Reset to tasks
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.remove('active');
+            if (item.textContent.toLowerCase().includes('task')) {
+                item.classList.add('active');
+            }
+        });
+    }
+}
+
 // Drag and Drop
 function setupDragAndDrop() {
     const columns = document.querySelectorAll('.kanban-tasks');
