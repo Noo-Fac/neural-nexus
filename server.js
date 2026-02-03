@@ -6,6 +6,65 @@ const bodyParser = require('body-parser');
 const { v4: uuidv4 } = require('uuid');
 const WebSocket = require('ws');
 const http = require('http');
+const https = require('https');
+
+// ===== NEXUS ALARM SYSTEM - Telegram Notifications =====
+const TELEGRAM_BOT_TOKEN = '7977554413:AAFa2FQEXI6b5bTdFgWwS_QsOprbjb2tvZc';
+const TELEGRAM_CHAT_ID = '6814413391';
+const NEXUS_URL = 'https://nexus.noospherefactotum.com';
+
+/**
+ * Send Telegram notification
+ * @param {string} type - Notification type (New Task, New Note, Task Moved, New Comment)
+ * @param {string} content - Content preview
+ * @param {string} from - Who made the change (default: Gene)
+ */
+function sendTelegramNotification(type, content, from = 'Gene') {
+  const message = `🚨 NEXUS ALERT
+
+Type: ${type}
+From: ${from}
+Content: ${content}
+
+View: ${NEXUS_URL}`;
+
+  const payload = JSON.stringify({
+    chat_id: TELEGRAM_CHAT_ID,
+    text: message,
+    disable_web_page_preview: false
+  });
+
+  const options = {
+    hostname: 'api.telegram.org',
+    port: 443,
+    path: `/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(payload)
+    }
+  };
+
+  const req = https.request(options, (res) => {
+    let data = '';
+    res.on('data', (chunk) => data += chunk);
+    res.on('end', () => {
+      if (res.statusCode === 200) {
+        console.log(`🔔 Telegram notification sent: ${type}`);
+      } else {
+        console.error('❌ Telegram notification failed:', data);
+      }
+    });
+  });
+
+  req.on('error', (error) => {
+    console.error('❌ Telegram notification error:', error.message);
+  });
+
+  req.write(payload);
+  req.end();
+}
+// =======================================================
 
 const app = express();
 const server = http.createServer(app);
@@ -179,6 +238,9 @@ app.post('/api/tasks', (req, res) => {
           [logId, 'task_created', `Task "${title}" created`, id]
         );
         
+        // 🔔 Send Telegram notification
+        sendTelegramNotification('New Task', title, created_by || 'Gene');
+        
         res.status(201).json(row);
       });
     }
@@ -223,6 +285,9 @@ app.patch('/api/tasks/:id', (req, res) => {
             `INSERT INTO logs (id, type, message, task_id) VALUES (?, ?, ?, ?)`,
             [logId, 'task_updated', `Task moved to ${status}`, taskId]
           );
+          
+          // 🔔 Send Telegram notification for status change
+          sendTelegramNotification('Task Moved', `"${row.title}" → ${status}`, 'Gene');
         }
         
         res.json(row);
@@ -503,6 +568,11 @@ app.post('/api/notes', (req, res) => {
       
       db.get('SELECT * FROM notes WHERE id = ?', [id], (err, row) => {
         broadcast({ type: 'note_added', data: row });
+        
+        // 🔔 Send Telegram notification
+        const preview = content.length > 100 ? content.substring(0, 100) + '...' : content;
+        sendTelegramNotification('New Note', preview, author || 'Gene');
+        
         res.status(201).json(row);
       });
     }
@@ -545,6 +615,14 @@ app.post('/api/tasks/:taskId/comments', (req, res) => {
       
       db.get('SELECT * FROM task_comments WHERE id = ?', [id], (err, row) => {
         broadcast({ type: 'comment_added', data: row });
+        
+        // 🔔 Send Telegram notification with task info
+        db.get('SELECT title FROM tasks WHERE id = ?', [taskId], (err, taskRow) => {
+          const taskTitle = taskRow ? taskRow.title : 'Unknown Task';
+          const preview = content.length > 100 ? content.substring(0, 100) + '...' : content;
+          sendTelegramNotification('New Comment', `On "${taskTitle}": ${preview}`, author || 'Gene');
+        });
+        
         res.status(201).json(row);
       });
     }
@@ -570,6 +648,13 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Test Telegram notification
+app.post('/api/test-notification', (req, res) => {
+  const { type, content } = req.body;
+  sendTelegramNotification(type || 'Test', content || 'Nexus Alarm System is working!', 'System');
+  res.json({ message: 'Test notification sent' });
+});
+
 // Serve main app
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -578,6 +663,7 @@ app.get('/', (req, res) => {
 server.listen(PORT, () => {
   console.log(`🧠 Neural Nexus running on port ${PORT}`);
   console.log(`🌐 http://localhost:${PORT}`);
+  console.log(`🔔 Nexus Alarm System ACTIVE - Telegram notifications enabled`);
 });
 
 // Graceful shutdown
