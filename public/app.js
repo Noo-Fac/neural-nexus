@@ -24,8 +24,8 @@ function init() {
     // Refresh sub-agents periodically
     setInterval(loadSubAgents, 10000);
     
-    // Set initial status to working
-    setAvatarState('working');
+    // Note: Status is now controlled by Noof only, not the UI
+    // Status updates via /api/noof/status (authenticated)
 }
 
 function connectWebSocket() {

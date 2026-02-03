@@ -239,9 +239,15 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-// Update agent status
+// Update agent status (requires authentication)
 app.post('/api/status', (req, res) => {
-  const { status, current_task } = req.body;
+  const { status, current_task, token } = req.body;
+  
+  // Require authentication to update status
+  if (token !== 'noof-secret-token-2024') {
+    return res.status(401).json({ error: 'Unauthorized - only Noof can update status' });
+  }
+  
   db.run(
     `UPDATE agent_status SET status = ?, current_task = ?, last_active = CURRENT_TIMESTAMP WHERE id = 1`,
     [status, current_task],
