@@ -9,9 +9,13 @@ const http = require('http');
 const https = require('https');
 
 // ===== NEXUS ALARM SYSTEM - Telegram Notifications =====
+// DISABLED by default - use WebSocket for real-time sync instead
 const TELEGRAM_BOT_TOKEN = '7977554413:AAFa2FQEXI6b5bTdFgWwS_QsOprbjb2tvZc';
 const TELEGRAM_CHAT_ID = '6814413391';
 const NEXUS_URL = 'https://nexus.noospherefactotum.com';
+
+// Toggle for Telegram notifications - set to true to re-enable
+const TELEGRAM_ALERTS_ENABLED = false;
 
 /**
  * Send Telegram notification
@@ -20,6 +24,11 @@ const NEXUS_URL = 'https://nexus.noospherefactotum.com';
  * @param {string} from - Who made the change (default: Gene)
  */
 function sendTelegramNotification(type, content, from = 'Gene') {
+  // Skip if Telegram alerts are disabled
+  if (!TELEGRAM_ALERTS_ENABLED) {
+    console.log(`🔕 Telegram notification skipped (disabled): ${type}`);
+    return;
+  }
   const message = `🚨 NEXUS ALERT
 
 Type: ${type}
@@ -150,19 +159,65 @@ db.serialize(() => {
 
 // WebSocket for real-time updates
 const clients = new Set();
+let mainAgentWs = null; // Track the main agent connection
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
   clients.add(ws);
+  
+  // Check if this is the main agent connecting
+  const isMainAgent = req.headers['x-agent-type'] === 'main' || 
+                      req.url.includes('agent=main');
+  
+  if (isMainAgent && !mainAgentWs) {
+    mainAgentWs = ws;
+    ws.isMainAgent = true;
+    console.log('🤖 Main agent connected via WebSocket');
+    
+    // Update status to monitoring
+    db.run(
+      `UPDATE agent_status SET status = 'monitoring', current_task = 'Listening via WebSocket', last_active = CURRENT_TIMESTAMP WHERE id = 1`,
+      [],
+      function(err) {
+        if (!err) {
+          db.get('SELECT * FROM agent_status WHERE id = 1', (err, row) => {
+            if (!err && row) {
+              broadcast({ type: 'status', data: row });
+            }
+          });
+        }
+      }
+    );
+  }
   
   // Send current status on connection
   db.get('SELECT * FROM agent_status WHERE id = 1', (err, row) => {
     if (!err && row) {
-      ws.send(JSON.stringify({ type: 'status', data: row }));
+      ws.send(JSON.stringify({ type: 'connected', data: { status: row, isMainAgent: ws.isMainAgent || false } }));
     }
   });
 
   ws.on('close', () => {
     clients.delete(ws);
+    
+    // If main agent disconnected, update status back to idle
+    if (ws.isMainAgent) {
+      mainAgentWs = null;
+      console.log('🤖 Main agent disconnected from WebSocket');
+      
+      db.run(
+        `UPDATE agent_status SET status = 'idle', current_task = NULL, last_active = CURRENT_TIMESTAMP WHERE id = 1`,
+        [],
+        function(err) {
+          if (!err) {
+            db.get('SELECT * FROM agent_status WHERE id = 1', (err, row) => {
+              if (!err && row) {
+                broadcast({ type: 'status', data: row });
+              }
+            });
+          }
+        }
+      );
+    }
   });
 });
 
@@ -663,7 +718,8 @@ app.get('/', (req, res) => {
 server.listen(PORT, () => {
   console.log(`🧠 Neural Nexus running on port ${PORT}`);
   console.log(`🌐 http://localhost:${PORT}`);
-  console.log(`🔔 Nexus Alarm System ACTIVE - Telegram notifications enabled`);
+  console.log(`📡 WebSocket server active - waiting for main agent connection`);
+  console.log(`🔕 Telegram alerts DISABLED (using WebSocket real-time sync)`);
 });
 
 // Graceful shutdown
