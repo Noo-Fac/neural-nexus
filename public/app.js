@@ -26,6 +26,15 @@ function init() {
     
     // Note: Status is now controlled by Noof only, not the UI
     // Status updates via /api/noof/status (authenticated)
+    
+    // Initialize Matrix Rain
+    initMatrixRain();
+    
+    // Initialize random glitch effects
+    initGlitchEffects();
+    
+    // Initialize 3D card tilt
+    initCardTilt();
 }
 
 function connectWebSocket() {
@@ -772,6 +781,117 @@ function showSection(section) {
     // Navigation handler - currently just tasks is implemented
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
     event.currentTarget.classList.add('active');
+}
+
+// ===== PHASE 1: FUTURISTIC EFFECTS =====
+
+// Matrix Rain Background
+function initMatrixRain() {
+    const canvas = document.getElementById('matrixCanvas');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
+    const fontSize = 14;
+    const columns = canvas.width / fontSize;
+    const drops = [];
+    
+    for (let i = 0; i < columns; i++) {
+        drops[i] = Math.random() * -100;
+    }
+    
+    function draw() {
+        ctx.fillStyle = 'rgba(10, 10, 15, 0.05)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = '#00f5ff';
+        ctx.font = fontSize + 'px monospace';
+        
+        for (let i = 0; i < drops.length; i++) {
+            const char = chars[Math.floor(Math.random() * chars.length)];
+            ctx.fillText(char, i * fontSize, drops[i] * fontSize);
+            
+            if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                drops[i] = 0;
+            }
+            drops[i]++;
+        }
+    }
+    
+    setInterval(draw, 50);
+    
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    });
+}
+
+// Random Glitch Effects
+function initGlitchEffects() {
+    const glitchElements = document.querySelectorAll('.glitch-text');
+    
+    function triggerGlitch() {
+        const element = glitchElements[Math.floor(Math.random() * glitchElements.length)];
+        if (element) {
+            element.style.animation = 'none';
+            element.offsetHeight; // Trigger reflow
+            element.style.animation = '';
+            
+            // Random text scramble
+            const originalText = element.getAttribute('data-text') || element.textContent;
+            const chars = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+            let iterations = 0;
+            
+            const interval = setInterval(() => {
+                element.textContent = originalText
+                    .split('')
+                    .map((char, index) => {
+                        if (index < iterations) return originalText[index];
+                        return chars[Math.floor(Math.random() * chars.length)];
+                    })
+                    .join('');
+                
+                iterations += 1/3;
+                if (iterations >= originalText.length) {
+                    clearInterval(interval);
+                    element.textContent = originalText;
+                }
+            }, 30);
+        }
+        
+        // Schedule next glitch (random interval between 3-10 seconds)
+        setTimeout(triggerGlitch, Math.random() * 7000 + 3000);
+    }
+    
+    // Start glitch loop
+    setTimeout(triggerGlitch, 3000);
+}
+
+// 3D Card Tilt Effect
+function initCardTilt() {
+    document.addEventListener('mousemove', (e) => {
+        const cards = document.querySelectorAll('.task-card');
+        
+        cards.forEach(card => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const rotateX = (y - centerY) / 10;
+                const rotateY = (centerX - x) / 10;
+                
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-5px) scale(1.02)`;
+            } else {
+                card.style.transform = '';
+            }
+        });
+    });
 }
 
 // Initialize

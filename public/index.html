@@ -48,6 +48,127 @@
             background: radial-gradient(ellipse at center, transparent 0%, var(--dark-bg) 70%);
         }
 
+        /* Matrix Rain Canvas */
+        #matrixCanvas {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.15;
+        }
+
+        /* Glitch Text Effect */
+        .glitch-text {
+            position: relative;
+            display: inline-block;
+        }
+
+        .glitch-text::before,
+        .glitch-text::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--dark-bg);
+        }
+
+        .glitch-text::before {
+            left: 2px;
+            text-shadow: -2px 0 var(--neon-pink);
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim 5s infinite linear alternate-reverse;
+        }
+
+        .glitch-text::after {
+            left: -2px;
+            text-shadow: -2px 0 var(--neon-cyan);
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim2 5s infinite linear alternate-reverse;
+        }
+
+        @keyframes glitch-anim {
+            0% { clip: rect(30px, 9999px, 10px, 0); }
+            20% { clip: rect(80px, 9999px, 90px, 0); }
+            40% { clip: rect(20px, 9999px, 60px, 0); }
+            60% { clip: rect(90px, 9999px, 20px, 0); }
+            80% { clip: rect(10px, 9999px, 80px, 0); }
+            100% { clip: rect(60px, 9999px, 40px, 0); }
+        }
+
+        @keyframes glitch-anim2 {
+            0% { clip: rect(60px, 9999px, 80px, 0); }
+            20% { clip: rect(10px, 9999px, 30px, 0); }
+            40% { clip: rect(70px, 9999px, 20px, 0); }
+            60% { clip: rect(30px, 9999px, 70px, 0); }
+            80% { clip: rect(80px, 9999px, 10px, 0); }
+            100% { clip: rect(40px, 9999px, 60px, 0); }
+        }
+
+        /* Holographic Card Effect */
+        .task-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: 3px solid var(--neon-cyan);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 12px;
+            cursor: grab;
+            transition: all 0.3s;
+            transform-style: preserve-3d;
+            perspective: 1000px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .task-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .task-card:hover::before {
+            left: 100%;
+        }
+
+        .task-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px) rotateX(5deg);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 245, 255, 0.2);
+        }
+
+        .task-card.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+            transform: scale(1.05) rotate(2deg);
+        }
+
+        /* Enhanced Avatar Pulse */
+        .avatar-emoji {
+            font-size: 80px;
+            line-height: 120px;
+            filter: drop-shadow(0 0 20px var(--neon-cyan));
+            animation: float 3s ease-in-out infinite, neonPulse 2s ease-in-out infinite;
+        }
+
+        .avatar-ring {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border: 3px solid var(--neon-cyan);
+            border-radius: 50%;
+            animation: pulse-ring 2s ease-in-out infinite, rotateRing 10s linear infinite;
+        }
+
+        @keyframes rotateRing {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes neonPulse {
+            0%, 100% { filter: drop-shadow(0 0 20px var(--neon-cyan)); }
+            50% { filter: drop-shadow(0 0 40px var(--neon-cyan)) drop-shadow(0 0 60px var(--neon-cyan)); }
+        }
+
         /* Scanlines Effect */
         .scanlines {
             position: fixed;
@@ -911,6 +1032,7 @@
 </head>
 <body>
     <div class="grid-bg"></div>
+    <canvas id="matrixCanvas"></canvas>
     <div class="scanlines"></div>
 
     <div class="app-container">
@@ -927,9 +1049,14 @@
                     <div class="avatar-ring"></div>
                     <div class="avatar-emoji neon-pulse" id="noofAvatar">🤖</div>
                 </div>
-                <div class="avatar-status">
-                    <span class="status-indicator" id="statusIndicator"></span>
-                    <span id="avatarStatus">WORKING</span>
+                <div class="avatar-status" style="display: flex; flex-direction: column; gap: 4px;">
+                    <div style="font-family: 'Orbitron', sans-serif; font-size: 0.9rem; color: var(--neon-cyan); text-shadow: 0 0 10px var(--neon-cyan);">
+                        <i class="fas fa-robot" style="font-size: 0.7rem; margin-right: 5px;"></i>NOOF
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <span class="status-indicator" id="statusIndicator"></span>
+                        <span id="avatarStatus" class="glitch-text" data-text="WORKING">WORKING</span>
+                    </div>
                 </div>
             </div>
 
