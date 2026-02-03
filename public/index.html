@@ -48,6 +48,111 @@
             background: radial-gradient(ellipse at center, transparent 0%, var(--dark-bg) 70%);
         }
 
+        /* Scanlines Effect */
+        .scanlines {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.1) 50%,
+                rgba(0,0,0,0.1)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 9999;
+            animation: scanlineMove 10s linear infinite;
+        }
+
+        @keyframes scanlineMove {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(4px); }
+        }
+
+        /* Glitch Effect */
+        .glitch {
+            position: relative;
+        }
+
+        .glitch::before,
+        .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--dark-bg);
+        }
+
+        .glitch::before {
+            left: 2px;
+            text-shadow: -2px 0 var(--neon-pink);
+            clip: rect(24px, 550px, 90px, 0);
+            animation: glitch-anim-2 3s infinite linear alternate-reverse;
+        }
+
+        .glitch::after {
+            left: -2px;
+            text-shadow: -2px 0 var(--neon-cyan);
+            clip: rect(85px, 550px, 140px, 0);
+            animation: glitch-anim 2.5s infinite linear alternate-reverse;
+        }
+
+        @keyframes glitch-anim {
+            0% { clip: rect(12px, 9999px, 67px, 0); }
+            20% { clip: rect(84px, 9999px, 125px, 0); }
+            40% { clip: rect(34px, 9999px, 96px, 0); }
+            60% { clip: rect(98px, 9999px, 14px, 0); }
+            80% { clip: rect(4px, 9999px, 84px, 0); }
+            100% { clip: rect(56px, 9999px, 32px, 0); }
+        }
+
+        @keyframes glitch-anim-2 {
+            0% { clip: rect(65px, 9999px, 99px, 0); }
+            20% { clip: rect(12px, 9999px, 45px, 0); }
+            40% { clip: rect(78px, 9999px, 12px, 0); }
+            60% { clip: rect(34px, 9999px, 67px, 0); }
+            80% { clip: rect(91px, 9999px, 23px, 0); }
+            100% { clip: rect(5px, 9999px, 87px, 0); }
+        }
+
+        /* CRT Flicker */
+        .crt-flicker {
+            animation: flicker 0.15s infinite;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.97; }
+            50% { opacity: 1; }
+            100% { opacity: 0.98; }
+        }
+
+        /* Neon Pulse Animation */
+        .neon-pulse {
+            animation: neonPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes neonPulse {
+            0%, 100% { box-shadow: 0 0 5px var(--neon-cyan), 0 0 10px var(--neon-cyan); }
+            50% { box-shadow: 0 0 20px var(--neon-cyan), 0 0 30px var(--neon-cyan), 0 0 40px var(--neon-cyan); }
+        }
+
+        /* Data Stream Effect */
+        .data-stream {
+            position: absolute;
+            font-family: monospace;
+            font-size: 10px;
+            color: rgba(0, 245, 255, 0.3);
+            pointer-events: none;
+            animation: dataStream 3s linear infinite;
+        }
+
+        @keyframes dataStream {
+            0% { transform: translateY(-100%); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(100vh); opacity: 0; }
+        }
+
         /* Layout */
         .app-container {
             position: relative;
@@ -94,6 +199,44 @@
             font-family: 'Orbitron', sans-serif;
             font-size: 1.2rem;
             color: var(--neon-cyan);
+            text-shadow: 0 0 10px var(--neon-cyan);
+            position: relative;
+        }
+
+        .logo h1::before,
+        .logo h1::after {
+            content: 'NEURAL NEXUS';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+        }
+
+        .logo h1::before {
+            animation: glitch-1 3s infinite linear alternate-reverse;
+            color: var(--neon-pink);
+            z-index: -1;
+        }
+
+        .logo h1::after {
+            animation: glitch-2 2s infinite linear alternate-reverse;
+            color: var(--neon-cyan);
+            z-index: -2;
+        }
+
+        @keyframes glitch-1 {
+            0%, 90%, 100% { transform: translate(0); opacity: 0; }
+            92% { transform: translate(-2px, 0); opacity: 0.7; }
+            94% { transform: translate(2px, 0); opacity: 0.7; }
+            96% { transform: translate(-1px, 0); opacity: 0.7; }
+            98% { transform: translate(1px, 0); opacity: 0.7; }
+        }
+
+        @keyframes glitch-2 {
+            0%, 90%, 100% { transform: translate(0); opacity: 0; }
+            91% { transform: translate(2px, 0); opacity: 0.7; }
+            93% { transform: translate(-2px, 0); opacity: 0.7; }
+            95% { transform: translate(1px, 0); opacity: 0.7; }
+            97% { transform: translate(-1px, 0); opacity: 0.7; }
         }
 
         /* Avatar Section */
@@ -675,6 +818,80 @@
             height: 80px;
         }
 
+        /* Sub-Agents */
+        .sub-agents-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .no-agents {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 0.85rem;
+            padding: 15px;
+            font-style: italic;
+        }
+
+        .sub-agent {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: 3px solid var(--neon-purple);
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+        }
+
+        .sub-agent:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateX(3px);
+        }
+
+        .sub-agent.working {
+            border-left-color: var(--neon-green);
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+        }
+
+        .sub-agent.idle {
+            border-left-color: var(--neon-orange);
+        }
+
+        .sub-agent-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+
+        .sub-agent-icon {
+            font-size: 1rem;
+        }
+
+        .sub-agent-name {
+            flex: 1;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .sub-agent-status {
+            font-size: 0.8rem;
+        }
+
+        .sub-agent-task {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.6);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 3px;
+        }
+
+        .sub-agent-meta {
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
         /* Scrollbar */
         ::-webkit-scrollbar {
             width: 6px;
@@ -692,6 +909,7 @@
 </head>
 <body>
     <div class="grid-bg"></div>
+    <div class="scanlines"></div>
 
     <div class="app-container">
         <!-- Left Sidebar -->
@@ -705,11 +923,24 @@
             <div class="avatar-section">
                 <div class="avatar-container">
                     <div class="avatar-ring"></div>
-                    <div class="avatar-emoji" id="noofAvatar">🤖</div>
+                    <div class="avatar-emoji neon-pulse" id="noofAvatar">🤖</div>
                 </div>
                 <div class="avatar-status">
                     <span class="status-indicator" id="statusIndicator"></span>
                     <span id="avatarStatus">WORKING</span>
+                </div>
+            </div>
+
+            <!-- Sub-Agents Panel -->
+            <div class="panel" style="flex: none; margin-top: 0;">
+                <div class="panel-header">
+                    <h3><i class="fas fa-robot"></i> SUB-AGENTS</h3>
+                    <span id="subAgentCount" style="background:var(--neon-purple); padding:2px 8px; border-radius:10px; font-size:0.75rem;">0</span>
+                </div>
+                <div class="panel-content" style="max-height: 200px;">
+                    <div class="sub-agents-list" id="subAgentsList">
+                        <div class="no-agents">No active sub-agents</div>
+                    </div>
                 </div>
             </div>
 

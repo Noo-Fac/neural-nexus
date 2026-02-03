@@ -334,6 +334,144 @@ app.patch('/api/documents/:id', (req, res) => {
   );
 });
 
+// SUB-AGENTS API
+
+// Sub-agents table
+db.run(`CREATE TABLE IF NOT EXISTS sub_agents (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  status TEXT DEFAULT 'idle',
+  task TEXT,
+  started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  last_ping DATETIME DEFAULT CURRENT_TIMESTAMP,
+  session_id TEXT
+)`);
+
+// Get all sub-agents
+app.get('/api/subagents', (req, res) => {
+  db.all('SELECT * FROM sub_agents ORDER BY started_at DESC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// Register sub-agent
+app.post('/api/subagents', (req, res) => {
+  const { name, task, session_id } = req.body;
+  const id = uuidv4();
+  
+  db.run(
+    `INSERT INTO sub_agents (id, name, task, session_id, status) VALUES (?, ?, ?, ?, 'working')`,
+    [id, name, task, session_id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      db.get('SELECT * FROM sub_agents WHERE id = ?', [id], (err, row) => {
+        broadcast({ type: 'subagent_update', data: row });
+        res.status(201).json(row);
+      });
+    }
+  );
+});
+
+// Update sub-agent ping
+app.post('/api/subagents/:id/ping', (req, res) => {
+  db.run(
+    'UPDATE sub_agents SET last_ping = CURRENT_TIMESTAMP, status = ? WHERE id = ?',
+    [req.body.status || 'working', req.params.id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ message: 'Pong' });
+    }
+  );
+});
+
+// Update sub-agent status
+app.post('/api/subagents/:id/status', (req, res) => {
+  const { status, task } = req.body;
+  db.run(
+    'UPDATE sub_agents SET status = ?, task = ?, last_ping = CURRENT_TIMESTAMP WHERE id = ?',
+    [status, task, req.params.id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      db.get('SELECT * FROM sub_agents WHERE id = ?', [req.params.id], (err, row) => {
+        broadcast({ type: 'subagent_update', data: row });
+        res.json(row);
+      });
+    }
+  );
+});
+
+// Complete sub-agent
+app.post('/api/subagents/:id/complete', (req, res) => {
+  db.run(
+    'UPDATE sub_agents SET status = ?, last_ping = CURRENT_TIMESTAMP WHERE id = ?',
+    ['completed', req.params.id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      db.get('SELECT * FROM sub_agents WHERE id = ?', [req.params.id], (err, row) => {
+        broadcast({ type: 'subagent_complete', data: row });
+        res.json(row);
+      });
+    }
+  );
+});
+
+// Cleanup old sub-agents
+app.delete('/api/subagents/old', (req, res) => {
+  db.run(
+    "DELETE FROM sub_agents WHERE status = 'completed' OR datetime(last_ping) < datetime('now', '-1 hour')",
+    [],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ message: 'Old sub-agents cleaned up', count: this.changes });
+    }
+  );
+});
+
+// Status auto-update - check inactivity every 30 seconds
+const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+
+setInterval(() => {
+  db.get('SELECT * FROM agent_status WHERE id = 1', (err, row) => {
+    if (err || !row) return;
+    
+    const lastActive = new Date(row.last_active);
+    const now = new Date();
+    const inactive = now - lastActive > INACTIVITY_TIMEOUT;
+    
+    if (inactive && row.status === 'working') {
+      db.run(
+        "UPDATE agent_status SET status = 'idle' WHERE id = 1",
+        [],
+        function(err) {
+          if (!err) {
+            db.get('SELECT * FROM agent_status WHERE id = 1', (err, updatedRow) => {
+              if (!err && updatedRow) {
+                broadcast({ type: 'status', data: updatedRow });
+                console.log('🤖 Status auto-updated: WORKING → IDLE (inactivity)');
+              }
+            });
+          }
+        }
+      );
+    }
+  });
+  
+  // Also check sub-agents for timeout
+  db.run(
+    "UPDATE sub_agents SET status = 'idle' WHERE status = 'working' AND datetime(last_ping) < datetime('now', '-10 minutes')",
+    [],
+    function(err) {
+      if (!err && this.changes > 0) {
+        broadcast({ type: 'subagent_timeout', count: this.changes });
+      }
+    }
+  );
+}, 30000);
+
 // NOTES API
 
 // Get all notes

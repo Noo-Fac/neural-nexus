@@ -20,6 +20,12 @@ function init() {
     loadAllData();
     setupDragAndDrop();
     setupEventListeners();
+    
+    // Refresh sub-agents periodically
+    setInterval(loadSubAgents, 10000);
+    
+    // Set initial status to working
+    setAvatarState('working');
 }
 
 function connectWebSocket() {
@@ -51,6 +57,11 @@ function handleWebSocketMessage(data) {
         case 'note_added':
             loadNotes();
             checkForUnseenNotes();
+            break;
+        case 'subagent_update':
+        case 'subagent_complete':
+        case 'subagent_timeout':
+            loadSubAgents();
             break;
     }
 }
@@ -101,41 +112,67 @@ function handleDragStart(e, taskId) {
     draggedTask = taskId;
     e.target.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', taskId);
+    console.log('Drag started:', taskId);
 }
 
 function handleDragEnd(e) {
     e.target.classList.remove('dragging');
     draggedTask = null;
+    console.log('Drag ended');
 }
 
 function handleDragOver(e) {
     e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
     e.currentTarget.classList.add('drag-over');
 }
 
 function handleDragLeave(e) {
-    e.currentTarget.classList.remove('drag-over');
+    e.preventDefault();
+    e.stopPropagation();
+    // Only remove if we're leaving the column, not entering a child
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+        e.currentTarget.classList.remove('drag-over');
+    }
 }
 
 async function handleDrop(e) {
     e.preventDefault();
+    e.stopPropagation();
     e.currentTarget.classList.remove('drag-over');
     
-    if (!draggedTask) return;
+    const taskId = e.dataTransfer.getData('text/plain') || draggedTask;
+    
+    if (!taskId) {
+        console.error('No task ID found in drop');
+        return;
+    }
     
     const newStatus = e.currentTarget.dataset.status;
+    console.log('Drop:', taskId, '→', newStatus);
     
     try {
-        await fetch(`${API_BASE}/api/tasks/${draggedTask}`, {
+        const response = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus })
         });
         
-        loadTasks();
-        addLog('task_moved', `Task moved to ${newStatus}`);
+        if (response.ok) {
+            console.log('Task moved successfully');
+            await loadTasks();
+            addLog('task_moved', `Task moved to ${newStatus}`);
+        } else {
+            console.error('Failed to move task:', response.status);
+            await loadTasks(); // Reload to restore state
+        }
     } catch (error) {
         console.error('Failed to move task:', error);
+        await loadTasks(); // Reload to restore state
+    } finally {
+        draggedTask = null;
     }
 }
 
@@ -256,7 +293,11 @@ async function loadNotes() {
         const response = await fetch(`${API_BASE}/api/notes`);
         const notes = await response.json();
         
-        const container = document.getElementById('notesContainer');
+        const container = document.getElementById('notesList');
+        if (!container) {
+            console.error('notesList element not found');
+            return;
+        }
         container.innerHTML = '';
         
         notes.forEach(note => {
@@ -269,7 +310,6 @@ async function loadNotes() {
                     ${note.seen ? '<span class="seen-badge"><i class="fas fa-check-double"></i> Seen</span>' : ''}
                 </div>
                 <p>${escapeHtml(note.content)}</p>
-                ${!note.seen && note.author === 'Gene' ? '<span class="unseen-badge">New</span>' : ''}
             `;
             container.appendChild(div);
             
@@ -392,6 +432,97 @@ function notifyNoofOfComment(taskId) {
     console.log('📱 Would notify Noof of comment on task:', taskId);
 }
 
+// Sub-Agent Tracking
+async function loadSubAgents() {
+    try {
+        const response = await fetch(`${API_BASE}/api/subagents`);
+        const agents = await response.json();
+        
+        const container = document.getElementById('subAgentsList');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        const activeAgents = agents.filter(a => a.status === 'working' || a.status === 'idle');
+        
+        // Update counter
+        const counter = document.getElementById('subAgentCount');
+        if (counter) {
+            counter.textContent = activeAgents.length;
+        }
+        
+        if (activeAgents.length === 0) {
+            container.innerHTML = '<div class="no-agents">No active sub-agents</div>';
+            return;
+        }
+        
+        activeAgents.forEach(agent => {
+            const div = document.createElement('div');
+            div.className = `sub-agent ${agent.status}`;
+            
+            const statusIcon = agent.status === 'working' ? '⚡' : '⏸️';
+            const statusColor = agent.status === 'working' ? 'var(--neon-green)' : 'var(--neon-orange)';
+            
+            div.innerHTML = `
+                <div class="sub-agent-header">
+                    <span class="sub-agent-icon">🤖</span>
+                    <span class="sub-agent-name">${escapeHtml(agent.name)}</span>
+                    <span class="sub-agent-status" style="color: ${statusColor}">${statusIcon}</span>
+                </div>
+                <div class="sub-agent-task">${escapeHtml(agent.task || 'No task')}</div>
+                <div class="sub-agent-meta">
+                    <span>${formatTime(agent.started_at)}</span>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    } catch (e) {
+        console.error('Failed to load sub-agents:', e);
+    }
+}
+
+async function registerSubAgent(name, task) {
+    try {
+        const sessionId = 'session_' + Date.now();
+        const response = await fetch(`${API_BASE}/api/subagents`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, task, session_id: sessionId })
+        });
+        
+        if (response.ok) {
+            const agent = await response.json();
+            console.log('Sub-agent registered:', agent.id);
+            loadSubAgents();
+            return agent;
+        }
+    } catch (e) {
+        console.error('Failed to register sub-agent:', e);
+    }
+}
+
+async function updateSubAgentStatus(agentId, status, task) {
+    try {
+        await fetch(`${API_BASE}/api/subagents/${agentId}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status, task })
+        });
+        loadSubAgents();
+    } catch (e) {
+        console.error('Failed to update sub-agent:', e);
+    }
+}
+
+async function completeSubAgent(agentId) {
+    try {
+        await fetch(`${API_BASE}/api/subagents/${agentId}/complete`, { method: 'POST' });
+        loadSubAgents();
+    } catch (e) {
+        console.error('Failed to complete sub-agent:', e);
+    }
+}
+
 // Setup Event Listeners
 function setupEventListeners() {
     // Notes input - Enter to send
@@ -423,7 +554,8 @@ async function loadAllData() {
         loadTasks(),
         loadNotes(),
         loadDocuments(),
-        loadLogs()
+        loadLogs(),
+        loadSubAgents()
     ]);
 }
 
@@ -459,21 +591,23 @@ async function loadLogs() {
         const response = await fetch(`${API_BASE}/api/logs?limit=20`);
         const logs = await response.json();
         
-        const container = document.getElementById('logsContainer');
+        const container = document.getElementById('logsList');
         if (container) {
             container.innerHTML = '';
-            logs.forEach(log => {
+            logs.reverse().forEach(log => {
                 const entry = document.createElement('div');
                 entry.className = 'log-entry';
                 
                 let icon = 'fa-info-circle';
-                if (log.type === 'task_created') icon = 'fa-plus-circle';
-                if (log.type === 'task_updated') icon = 'fa-edit';
-                if (log.type === 'status_change') icon = 'fa-sync';
+                let color = 'var(--neon-cyan)';
+                if (log.type === 'task_created') { icon = 'fa-plus-circle'; color = 'var(--neon-green)'; }
+                if (log.type === 'task_updated') { icon = 'fa-edit'; color = 'var(--neon-cyan)'; }
+                if (log.type === 'status_change') { icon = 'fa-sync'; color = 'var(--neon-purple)'; }
+                if (log.type === 'subagent') { icon = 'fa-robot'; color = 'var(--neon-pink)'; }
                 
                 entry.innerHTML = `
                     <span class="log-time">${formatTime(log.created_at)}</span>
-                    <span class="log-type ${log.type}"><i class="fas ${icon}"></i></span>
+                    <i class="fas ${icon}" style="color: ${color}; margin-right: 8px;"></i>
                     <span class="log-message">${escapeHtml(log.message)}</span>
                 `;
                 container.appendChild(entry);
@@ -596,6 +730,25 @@ document.addEventListener('keydown', (e) => {
         document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
     }
 });
+
+async function addLog(type, message) {
+    try {
+        await fetch(`${API_BASE}/api/logs`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type, message })
+        });
+        loadLogs();
+    } catch (e) {
+        console.error('Failed to add log:', e);
+    }
+}
+
+function showSection(section) {
+    // Navigation handler - currently just tasks is implemented
+    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+}
 
 // Initialize
 document.addEventListener('DOMContentLoaded', init);
