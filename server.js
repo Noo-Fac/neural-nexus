@@ -8,73 +8,70 @@ const WebSocket = require('ws');
 const http = require('http');
 const https = require('https');
 
-// ===== NEXUS WEBHOOK SYSTEM - OpenClaw Integration =====
+// ===== NEXUS ALARM SYSTEM - Telegram Notifications =====
+// DISABLED by default - use WebSocket for real-time sync instead
+const TELEGRAM_BOT_TOKEN = '7977554413:AAFa2FQEXI6b5bTdFgWwS_QsOprbjb2tvZc';
+const TELEGRAM_CHAT_ID = '6814413391';
 const NEXUS_URL = 'https://nexus.noospherefactotum.com';
-const OPENCLAW_WEBHOOK_URL = 'http://localhost:18789/hooks/agent';
-const OPENCLAW_WEBHOOK_TOKEN = 'nexus-webhook-token-2024';
+
+// Toggle for Telegram notifications - set to true to re-enable
+const TELEGRAM_ALERTS_ENABLED = false;
 
 /**
- * Send webhook notification to OpenClaw (Noof)
- * @param {string} type - Notification type (task_created, task_updated, note_created, comment_added)
+ * Send Telegram notification
+ * @param {string} type - Notification type (New Task, New Note, Task Moved, New Comment)
  * @param {string} content - Content preview
  * @param {string} from - Who made the change (default: Gene)
- * @param {object} extra - Extra data to include
  */
-function sendOpenClawWebhook(type, content, from = 'Gene', extra = {}) {
-  const message = `📬 Nexus Update from ${from}
+function sendTelegramNotification(type, content, from = 'Gene') {
+  // Skip if Telegram alerts are disabled
+  if (!TELEGRAM_ALERTS_ENABLED) {
+    console.log(`🔕 Telegram notification skipped (disabled): ${type}`);
+    return;
+  }
+  const message = `🚨 NEXUS ALERT
 
-Type: ${type.replace(/_/g, ' ').toUpperCase()}
+Type: ${type}
+From: ${from}
 Content: ${content}
-${extra.url ? `Link: ${extra.url}` : ''}`;
+
+View: ${NEXUS_URL}`;
 
   const payload = JSON.stringify({
-    message: message,
-    name: from,
-    channel: 'telegram',
-    wakeMode: 'now',
-    sessionKey: 'nexus-webhook-session',
-    deliver: true
+    chat_id: TELEGRAM_CHAT_ID,
+    text: message,
+    disable_web_page_preview: false
   });
 
   const options = {
-    hostname: 'localhost',
-    port: 18789,
-    path: '/hooks/agent',
+    hostname: 'api.telegram.org',
+    port: 443,
+    path: `/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${OPENCLAW_WEBHOOK_TOKEN}`,
       'Content-Length': Buffer.byteLength(payload)
     }
   };
 
-  const req = http.request(options, (res) => {
+  const req = https.request(options, (res) => {
     let data = '';
     res.on('data', (chunk) => data += chunk);
     res.on('end', () => {
-      if (res.statusCode === 202) {
-        console.log(`✅ OpenClaw webhook sent: ${type}`);
+      if (res.statusCode === 200) {
+        console.log(`🔔 Telegram notification sent: ${type}`);
       } else {
-        console.error('❌ OpenClaw webhook failed:', res.statusCode, data);
+        console.error('❌ Telegram notification failed:', data);
       }
     });
   });
 
   req.on('error', (error) => {
-    console.error('❌ OpenClaw webhook error:', error.message);
+    console.error('❌ Telegram notification error:', error.message);
   });
 
   req.write(payload);
   req.end();
-}
-
-// Legacy Telegram notification (disabled)
-const TELEGRAM_ALERTS_ENABLED = false;
-function sendTelegramNotification(type, content, from = 'Gene') {
-  if (!TELEGRAM_ALERTS_ENABLED) {
-    console.log(`🔕 Telegram notification skipped (disabled): ${type}`);
-    return;
-  }
 }
 // =======================================================
 
@@ -296,10 +293,8 @@ app.post('/api/tasks', (req, res) => {
           [logId, 'task_created', `Task "${title}" created`, id]
         );
         
-        // 🔔 Send OpenClaw webhook notification
-        sendOpenClawWebhook('task_created', title, created_by || 'Gene', {
-          url: `${NEXUS_URL}/tasks/${id}`
-        });
+        // 🔔 Send Telegram notification
+        sendTelegramNotification('New Task', title, created_by || 'Gene');
         
         res.status(201).json(row);
       });
@@ -346,10 +341,8 @@ app.patch('/api/tasks/:id', (req, res) => {
             [logId, 'task_updated', `Task moved to ${status}`, taskId]
           );
           
-          // 🔔 Send OpenClaw webhook notification for status change
-          sendOpenClawWebhook('task_updated', `"${row.title}" moved to ${status}`, 'Gene', {
-            url: `${NEXUS_URL}/tasks/${taskId}`
-          });
+          // 🔔 Send Telegram notification for status change
+          sendTelegramNotification('Task Moved', `"${row.title}" → ${status}`, 'Gene');
         }
         
         res.json(row);
@@ -631,11 +624,9 @@ app.post('/api/notes', (req, res) => {
       db.get('SELECT * FROM notes WHERE id = ?', [id], (err, row) => {
         broadcast({ type: 'note_added', data: row });
         
-        // 🔔 Send OpenClaw webhook notification
+        // 🔔 Send Telegram notification
         const preview = content.length > 100 ? content.substring(0, 100) + '...' : content;
-        sendOpenClawWebhook('note_created', preview, author || 'Gene', {
-          url: `${NEXUS_URL}/notes`
-        });
+        sendTelegramNotification('New Note', preview, author || 'Gene');
         
         res.status(201).json(row);
       });
@@ -680,13 +671,11 @@ app.post('/api/tasks/:taskId/comments', (req, res) => {
       db.get('SELECT * FROM task_comments WHERE id = ?', [id], (err, row) => {
         broadcast({ type: 'comment_added', data: row });
         
-        // 🔔 Send OpenClaw webhook notification with task info
+        // 🔔 Send Telegram notification with task info
         db.get('SELECT title FROM tasks WHERE id = ?', [taskId], (err, taskRow) => {
           const taskTitle = taskRow ? taskRow.title : 'Unknown Task';
           const preview = content.length > 100 ? content.substring(0, 100) + '...' : content;
-          sendOpenClawWebhook('comment_added', `On "${taskTitle}": ${preview}`, author || 'Gene', {
-            url: `${NEXUS_URL}/tasks/${taskId}`
-          });
+          sendTelegramNotification('New Comment', `On "${taskTitle}": ${preview}`, author || 'Gene');
         });
         
         res.status(201).json(row);
