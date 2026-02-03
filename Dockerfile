@@ -11,8 +11,11 @@ RUN npm install
 # Copy app files
 COPY . .
 
-# Create data directory for SQLite
-RUN mkdir -p /app/data
+# Create data directory for SQLite persistence
+RUN mkdir -p /data
+
+# Set environment variable for data directory
+ENV DATA_DIR=/data
 
 # Expose port
 EXPOSE 3000

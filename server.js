@@ -86,8 +86,10 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Database setup
-const db = new sqlite3.Database(path.join(__dirname, 'neural_nexus.db'));
+// Database setup - use persistent volume if available
+const DB_PATH = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'neural_nexus.db') : path.join(__dirname, 'data', 'neural_nexus.db');
+console.log(`📁 Database path: ${DB_PATH}`);
+const db = new sqlite3.Database(DB_PATH);
 
 db.serialize(() => {
   // Tasks table
