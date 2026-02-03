@@ -1,25 +1,34 @@
-// Neural Nexus - Frontend Logic
-const API_BASE = window.location.origin;
+// Enhanced Neural Nexus with Drag & Drop, Notes, Threads, and Avatar States
 
-// WebSocket for real-time updates
+const API_BASE = window.location.origin;
 let ws;
-let reconnectInterval;
+let currentUser = 'Gene';
+let currentTaskId = null;
+let draggedTask = null;
+
+// Avatar States
+const AVATAR_STATES = {
+    idle: { emoji: '😴', color: '#ff6600', label: 'IDLE' },
+    working: { emoji: '🤖', color: '#00ff00', label: 'WORKING' },
+    busy: { emoji: '⚡', color: '#ff00ff', label: 'BUSY' },
+    bored: { emoji: '🥱', color: '#00f5ff', label: 'BORED' }
+};
 
 // Initialize
 function init() {
     connectWebSocket();
     loadAllData();
-    updateAgentStatus('working', 'Building Neural Nexus');
+    setupDragAndDrop();
+    setupEventListeners();
 }
 
-// WebSocket Connection
 function connectWebSocket() {
     const wsUrl = window.location.origin.replace(/^http/, 'ws');
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
         console.log('🧠 Neural Nexus connected');
-        addLog('system', 'Neural Nexus connection established');
+        addLog('system', 'Connection established');
     };
 
     ws.onmessage = (event) => {
@@ -27,93 +36,129 @@ function connectWebSocket() {
         handleWebSocketMessage(data);
     };
 
-    ws.onclose = () => {
-        console.log('Connection closed, reconnecting...');
-        setTimeout(connectWebSocket, 3000);
-    };
-
-    ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-    };
+    ws.onclose = () => setTimeout(connectWebSocket, 3000);
 }
 
 function handleWebSocketMessage(data) {
     switch(data.type) {
         case 'status':
-            updateStatusUI(data.data);
+            updateAvatarState(data.data.status);
             break;
         case 'task_created':
         case 'task_updated':
             loadTasks();
-            addLog('task_updated', `Task "${data.data.title}" updated`);
             break;
-        case 'task_deleted':
-            loadTasks();
-            addLog('task_deleted', 'Task deleted');
-            break;
-        case 'log_added':
-            loadLogs();
-            break;
-        case 'document_created':
-        case 'document_updated':
-            loadDocuments();
+        case 'note_added':
+            loadNotes();
+            checkForUnseenNotes();
             break;
     }
 }
 
-// Load all data
-async function loadAllData() {
-    await Promise.all([
-        loadTasks(),
-        loadLogs(),
-        loadDocuments(),
-        loadStats()
-    ]);
+// Avatar State Management
+function updateAvatarState(status) {
+    const state = AVATAR_STATES[status] || AVATAR_STATES.idle;
+    const avatar = document.getElementById('noofAvatar');
+    const statusText = document.getElementById('avatarStatus');
+    const indicator = document.getElementById('statusIndicator');
+    
+    if (avatar) avatar.textContent = state.emoji;
+    if (statusText) {
+        statusText.textContent = state.label;
+        statusText.style.color = state.color;
+    }
+    if (indicator) {
+        indicator.style.background = state.color;
+        indicator.style.boxShadow = `0 0 15px ${state.color}`;
+    }
 }
 
-// Tasks
+async function setAvatarState(status) {
+    try {
+        await fetch(`${API_BASE}/api/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+        });
+        updateAvatarState(status);
+    } catch (e) {
+        console.error('Failed to update status:', e);
+    }
+}
+
+// Drag and Drop
+function setupDragAndDrop() {
+    const columns = document.querySelectorAll('.kanban-tasks');
+    
+    columns.forEach(column => {
+        column.addEventListener('dragover', handleDragOver);
+        column.addEventListener('drop', handleDrop);
+        column.addEventListener('dragleave', handleDragLeave);
+    });
+}
+
+function handleDragStart(e, taskId) {
+    draggedTask = taskId;
+    e.target.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragEnd(e) {
+    e.target.classList.remove('dragging');
+    draggedTask = null;
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.currentTarget.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+}
+
+async function handleDrop(e) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+    
+    if (!draggedTask) return;
+    
+    const newStatus = e.currentTarget.dataset.status;
+    
+    try {
+        await fetch(`${API_BASE}/api/tasks/${draggedTask}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+        
+        loadTasks();
+        addLog('task_moved', `Task moved to ${newStatus}`);
+    } catch (error) {
+        console.error('Failed to move task:', error);
+    }
+}
+
+// Task Management
 async function loadTasks() {
     try {
         const response = await fetch(`${API_BASE}/api/tasks`);
         const tasks = await response.json();
         
-        // Clear all columns
-        document.getElementById('backlogTasks').innerHTML = '';
-        document.getElementById('progressTasks').innerHTML = '';
-        document.getElementById('completedTasks').innerHTML = '';
-        
-        // Counters
-        let backlogCount = 0;
-        let progressCount = 0;
-        let completedCount = 0;
-        
-        tasks.forEach(task => {
-            const taskCard = createTaskCard(task);
-            
-            switch(task.status) {
-                case 'backlog':
-                    document.getElementById('backlogTasks').appendChild(taskCard);
-                    backlogCount++;
-                    break;
-                case 'in-progress':
-                    document.getElementById('progressTasks').appendChild(taskCard);
-                    progressCount++;
-                    break;
-                case 'completed':
-                    document.getElementById('completedTasks').appendChild(taskCard);
-                    completedCount++;
-                    break;
+        ['backlog', 'in-progress', 'completed'].forEach(status => {
+            const container = document.getElementById(`${status.replace('-', '')}Tasks`);
+            if (container) {
+                container.innerHTML = '';
+                const statusTasks = tasks.filter(t => t.status === status);
+                statusTasks.forEach(task => container.appendChild(createTaskCard(task)));
+                
+                // Update counter
+                const counter = document.getElementById(`${status.replace('-', '')}Count`);
+                if (counter) counter.textContent = statusTasks.length;
             }
         });
         
-        // Update counters
-        document.getElementById('backlogCount').textContent = backlogCount;
-        document.getElementById('progressCount').textContent = progressCount;
-        document.getElementById('completedCount').textContent = completedCount;
-        document.getElementById('totalTasks').textContent = tasks.length;
-        document.getElementById('inProgress').textContent = progressCount;
-        document.getElementById('completed').textContent = completedCount;
-        
+        updateStats(tasks);
     } catch (error) {
         console.error('Error loading tasks:', error);
     }
@@ -122,123 +167,348 @@ async function loadTasks() {
 function createTaskCard(task) {
     const card = document.createElement('div');
     card.className = `task-card priority-${task.priority}`;
-    card.onclick = () => openTaskModal(task);
-    
-    const tags = task.tags ? task.tags.split(',').map(t => `<span class="tag">${t.trim()}</span>`).join('') : '';
+    card.draggable = true;
+    card.dataset.taskId = task.id;
     
     card.innerHTML = `
-        <h4>${escapeHtml(task.title)}</h4>
-        <p>${escapeHtml(task.description || '').substring(0, 100)}${task.description && task.description.length > 100 ? '...' : ''}</p>
+        <div class="task-header">
+            <h4>${escapeHtml(task.title)}</h4>
+            <div class="task-actions">
+                <button onclick="openTaskThread('${task.id}')" title="View Thread">
+                    <i class="fas fa-comments"></i>
+                </button>
+                <button onclick="openTaskModal(${JSON.stringify(task).replace(/"/g, '&quot;')})" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+            </div>
+        </div>
+        <p>${escapeHtml(task.description || '').substring(0, 100)}...</p>
         <div class="task-meta">
-            <div class="task-tags">${tags}</div>
+            <div class="task-tags">
+                ${task.tags ? task.tags.split(',').map(t => `<span class="tag">${t.trim()}</span>`).join('') : ''}
+            </div>
             <span class="task-date">${formatDate(task.created_at)}</span>
         </div>
+        ${task.comments ? `<div class="task-comments-count"><i class="fas fa-comment"></i> ${task.comments}</div>` : ''}
     `;
+    
+    card.addEventListener('dragstart', (e) => handleDragStart(e, task.id));
+    card.addEventListener('dragend', handleDragEnd);
+    card.addEventListener('dblclick', () => openTaskThread(task.id));
     
     return card;
 }
 
-// Logs
-async function loadLogs() {
+// Task Thread/Comments
+async function openTaskThread(taskId) {
+    currentTaskId = taskId;
+    const task = await fetch(`${API_BASE}/api/tasks/${taskId}`).then(r => r.json());
+    const comments = await fetch(`${API_BASE}/api/tasks/${taskId}/comments`).then(r => r.json());
+    
+    document.getElementById('threadTaskTitle').textContent = task.title;
+    document.getElementById('threadTaskId').value = taskId;
+    
+    const container = document.getElementById('threadComments');
+    container.innerHTML = '';
+    
+    comments.forEach(comment => {
+        const div = document.createElement('div');
+        div.className = `comment ${comment.author === 'Noof' ? 'noof' : 'gene'}`;
+        div.innerHTML = `
+            <div class="comment-header">
+                <strong>${comment.author}</strong>
+                <span>${formatTime(comment.created_at)}</span>
+            </div>
+            <p>${escapeHtml(comment.content)}</p>
+        `;
+        container.appendChild(div);
+    });
+    
+    document.getElementById('threadModal').classList.add('active');
+}
+
+async function addComment() {
+    const content = document.getElementById('commentInput').value;
+    if (!content.trim()) return;
+    
     try {
-        const response = await fetch(`${API_BASE}/api/logs?limit=20`);
-        const logs = await response.json();
-        
-        const container = document.getElementById('logsContainer');
-        container.innerHTML = '';
-        
-        logs.forEach(log => {
-            const entry = document.createElement('div');
-            entry.className = 'log-entry';
-            
-            let icon = 'fa-info-circle';
-            if (log.type === 'task_created') icon = 'fa-plus-circle';
-            if (log.type === 'task_updated') icon = 'fa-edit';
-            if (log.type === 'status_change') icon = 'fa-sync';
-            
-            entry.innerHTML = `
-                <span class="log-time">${formatTime(log.created_at)}</span>
-                <span class="log-type ${log.type}"><i class="fas ${icon}"></i></span>
-                <span class="log-message">${escapeHtml(log.message)}</span>
-            `;
-            
-            container.appendChild(entry);
+        await fetch(`${API_BASE}/api/tasks/${currentTaskId}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content, author: currentUser })
         });
         
-        // Scroll to bottom
-        container.scrollTop = container.scrollHeight;
+        document.getElementById('commentInput').value = '';
+        openTaskThread(currentTaskId);
         
-    } catch (error) {
-        console.error('Error loading logs:', error);
+        // If Gene adds comment, notify Noof
+        if (currentUser === 'Gene') {
+            notifyNoofOfComment(currentTaskId);
+        }
+    } catch (e) {
+        console.error('Failed to add comment:', e);
     }
 }
 
-function addLog(type, message) {
-    // Add to UI immediately (will be persisted via API)
-    fetch(`${API_BASE}/api/logs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, message })
-    });
-}
-
-function clearLogs() {
-    if (confirm('Clear all logs?')) {
-        document.getElementById('logsContainer').innerHTML = '';
+// Notes System
+async function loadNotes() {
+    try {
+        const response = await fetch(`${API_BASE}/api/notes`);
+        const notes = await response.json();
+        
+        const container = document.getElementById('notesContainer');
+        container.innerHTML = '';
+        
+        notes.forEach(note => {
+            const div = document.createElement('div');
+            div.className = `note ${note.seen ? 'seen' : 'unseen'} ${note.author === 'Noof' ? 'noof' : 'gene'}`;
+            div.innerHTML = `
+                <div class="note-header">
+                    <strong>${note.author}</strong>
+                    <span>${formatTime(note.created_at)}</span>
+                    ${note.seen ? '<span class="seen-badge"><i class="fas fa-check-double"></i> Seen</span>' : ''}
+                </div>
+                <p>${escapeHtml(note.content)}</p>
+                ${!note.seen && note.author === 'Gene' ? '<span class="unseen-badge">New</span>' : ''}
+            `;
+            container.appendChild(div);
+            
+            // Mark as seen if I'm Noof and it's from Gene
+            if (!note.seen && note.author === 'Gene') {
+                markNoteAsSeen(note.id);
+            }
+        });
+        
+        container.scrollTop = container.scrollHeight;
+    } catch (e) {
+        console.error('Failed to load notes:', e);
     }
 }
 
-// Documents
+async function addNote() {
+    const content = document.getElementById('noteInput').value;
+    if (!content.trim()) return;
+    
+    try {
+        await fetch(`${API_BASE}/api/notes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content, author: currentUser })
+        });
+        
+        document.getElementById('noteInput').value = '';
+        loadNotes();
+        
+        // If Gene leaves note, notify me on Telegram
+        if (currentUser === 'Gene') {
+            notifyNoofOfNote(content);
+        }
+    } catch (e) {
+        console.error('Failed to add note:', e);
+    }
+}
+
+async function markNoteAsSeen(noteId) {
+    try {
+        await fetch(`${API_BASE}/api/notes/${noteId}/seen`, { method: 'POST' });
+    } catch (e) {
+        console.error('Failed to mark note as seen:', e);
+    }
+}
+
+async function checkForUnseenNotes() {
+    try {
+        const response = await fetch(`${API_BASE}/api/notes/unseen`);
+        const unseen = await response.json();
+        
+        if (unseen.length > 0) {
+            // Update UI to show notification
+            const badge = document.getElementById('notesBadge');
+            if (badge) {
+                badge.textContent = unseen.length;
+                badge.style.display = 'block';
+            }
+        }
+    } catch (e) {
+        console.error('Failed to check unseen notes:', e);
+    }
+}
+
+// Document Editing
+async function openDocumentEditor(docId = null) {
+    const modal = document.getElementById('documentEditorModal');
+    
+    if (docId) {
+        const doc = await fetch(`${API_BASE}/api/documents/${docId}`).then(r => r.json());
+        document.getElementById('docEditId').value = doc.id;
+        document.getElementById('docEditTitle').value = doc.title;
+        document.getElementById('docEditContent').value = doc.content || '';
+        document.getElementById('docEditorTitle').textContent = 'EDIT DOCUMENT';
+    } else {
+        document.getElementById('docEditId').value = '';
+        document.getElementById('docEditTitle').value = '';
+        document.getElementById('docEditContent').value = '';
+        document.getElementById('docEditorTitle').textContent = 'NEW DOCUMENT';
+    }
+    
+    modal.classList.add('active');
+}
+
+async function saveDocumentEdit() {
+    const id = document.getElementById('docEditId').value;
+    const title = document.getElementById('docEditTitle').value;
+    const content = document.getElementById('docEditContent').value;
+    
+    if (!title.trim()) {
+        alert('Please enter a title');
+        return;
+    }
+    
+    try {
+        const url = id ? `${API_BASE}/api/documents/${id}` : `${API_BASE}/api/documents`;
+        const method = id ? 'PATCH' : 'POST';
+        
+        await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, content })
+        });
+        
+        closeDocumentEditor();
+        loadDocuments();
+        addLog(id ? 'document_updated' : 'document_created', `Document "${title}" ${id ? 'updated' : 'created'}`);
+    } catch (e) {
+        console.error('Failed to save document:', e);
+    }
+}
+
+// Notification Functions
+function notifyNoofOfNote(content) {
+    // This would integrate with Telegram - placeholder for now
+    console.log('📱 Would notify Noof on Telegram:', content.substring(0, 50));
+}
+
+function notifyNoofOfComment(taskId) {
+    console.log('📱 Would notify Noof of comment on task:', taskId);
+}
+
+// Setup Event Listeners
+function setupEventListeners() {
+    // Notes input - Enter to send
+    const noteInput = document.getElementById('noteInput');
+    if (noteInput) {
+        noteInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                addNote();
+            }
+        });
+    }
+    
+    // Comment input - Enter to send
+    const commentInput = document.getElementById('commentInput');
+    if (commentInput) {
+        commentInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                addComment();
+            }
+        });
+    }
+}
+
+// Legacy Functions (keep for compatibility)
+async function loadAllData() {
+    await Promise.all([
+        loadTasks(),
+        loadNotes(),
+        loadDocuments(),
+        loadLogs()
+    ]);
+}
+
 async function loadDocuments() {
     try {
         const response = await fetch(`${API_BASE}/api/documents`);
         const docs = await response.json();
         
         const container = document.getElementById('documentsList');
-        container.innerHTML = '';
-        
-        docs.forEach(doc => {
-            const item = document.createElement('div');
-            item.className = 'document-item';
-            item.onclick = () => openDocumentModal(doc);
-            
-            item.innerHTML = `
-                <i class="fas fa-file-alt"></i>
-                <div class="document-info">
-                    <h4>${escapeHtml(doc.title)}</h4>
-                    <p>${formatDate(doc.updated_at)}</p>
-                </div>
-            `;
-            
-            container.appendChild(item);
-        });
-        
-        document.getElementById('totalDocs').textContent = docs.length;
-        
-    } catch (error) {
-        console.error('Error loading documents:', error);
+        if (container) {
+            container.innerHTML = '';
+            docs.forEach(doc => {
+                const item = document.createElement('div');
+                item.className = 'document-item';
+                item.onclick = () => openDocumentEditor(doc.id);
+                item.innerHTML = `
+                    <i class="fas fa-file-alt"></i>
+                    <div class="document-info">
+                        <h4>${escapeHtml(doc.title)}</h4>
+                        <p>${formatDate(doc.updated_at)}</p>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+    } catch (e) {
+        console.error('Failed to load documents:', e);
     }
 }
 
-// Agent Status
-async function updateAgentStatus(status, currentTask) {
+async function loadLogs() {
     try {
-        await fetch(`${API_BASE}/api/status`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status, current_task: currentTask })
-        });
-    } catch (error) {
-        console.error('Error updating status:', error);
+        const response = await fetch(`${API_BASE}/api/logs?limit=20`);
+        const logs = await response.json();
+        
+        const container = document.getElementById('logsContainer');
+        if (container) {
+            container.innerHTML = '';
+            logs.forEach(log => {
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                
+                let icon = 'fa-info-circle';
+                if (log.type === 'task_created') icon = 'fa-plus-circle';
+                if (log.type === 'task_updated') icon = 'fa-edit';
+                if (log.type === 'status_change') icon = 'fa-sync';
+                
+                entry.innerHTML = `
+                    <span class="log-time">${formatTime(log.created_at)}</span>
+                    <span class="log-type ${log.type}"><i class="fas ${icon}"></i></span>
+                    <span class="log-message">${escapeHtml(log.message)}</span>
+                `;
+                container.appendChild(entry);
+            });
+            container.scrollTop = container.scrollHeight;
+        }
+    } catch (e) {
+        console.error('Failed to load logs:', e);
     }
 }
 
-function updateStatusUI(data) {
-    const indicator = document.getElementById('statusIndicator');
-    const text = document.getElementById('statusText');
+function updateStats(tasks) {
+    const totalTasks = document.getElementById('totalTasks');
+    const inProgress = document.getElementById('inProgress');
+    const completed = document.getElementById('completed');
     
-    indicator.className = `status-indicator ${data.status}`;
-    text.textContent = data.status.toUpperCase();
+    if (totalTasks) totalTasks.textContent = tasks.length;
+    if (inProgress) inProgress.textContent = tasks.filter(t => t.status === 'in-progress').length;
+    if (completed) completed.textContent = tasks.filter(t => t.status === 'completed').length;
+}
+
+// Utilities
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatDate(dateString) {
+    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function formatTime(dateString) {
+    return new Date(dateString).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
 // Modal Functions
@@ -277,8 +547,13 @@ async function saveTask() {
         status: document.getElementById('taskStatus').value,
         priority: document.getElementById('taskPriority').value,
         tags: document.getElementById('taskTags').value,
-        created_by: 'Gene'
+        created_by: currentUser
     };
+    
+    if (!taskData.title.trim()) {
+        alert('Please enter a task title');
+        return;
+    }
     
     try {
         const url = id ? `${API_BASE}/api/tasks/${id}` : `${API_BASE}/api/tasks`;
@@ -299,78 +574,13 @@ async function saveTask() {
     }
 }
 
-// Document Modal
-function openDocumentModal(doc = null) {
-    const modal = document.getElementById('documentModal');
-    const form = document.getElementById('documentForm');
-    const title = document.getElementById('docModalTitle');
-    
-    form.reset();
-    
-    if (doc) {
-        title.textContent = 'EDIT DOCUMENT';
-        document.getElementById('docId').value = doc.id;
-        document.getElementById('docTitle').value = doc.title;
-        document.getElementById('docContent').value = doc.content || '';
-    } else {
-        title.textContent = 'NEW DOCUMENT';
-        document.getElementById('docId').value = '';
-    }
-    
-    modal.classList.add('active');
+function closeDocumentEditor() {
+    document.getElementById('documentEditorModal').classList.remove('active');
 }
 
-function closeDocumentModal() {
-    document.getElementById('documentModal').classList.remove('active');
-}
-
-async function saveDocument() {
-    const id = document.getElementById('docId').value;
-    const docData = {
-        title: document.getElementById('docTitle').value,
-        content: document.getElementById('docContent').value
-    };
-    
-    try {
-        const url = id ? `${API_BASE}/api/documents/${id}` : `${API_BASE}/api/documents`;
-        const method = id ? 'PATCH' : 'POST';
-        
-        const response = await fetch(url, {
-            method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(docData)
-        });
-        
-        if (response.ok) {
-            closeDocumentModal();
-            loadDocuments();
-        }
-    } catch (error) {
-        console.error('Error saving document:', error);
-    }
-}
-
-// Stats
-async function loadStats() {
-    // Stats are updated in loadTasks and loadDocuments
-}
-
-// Utilities
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function formatTime(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+function closeThreadModal() {
+    document.getElementById('threadModal').classList.remove('active');
+    currentTaskId = null;
 }
 
 // Close modals on outside click
@@ -385,11 +595,7 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
     }
-    if (e.ctrlKey && e.key === 'n') {
-        e.preventDefault();
-        openTaskModal();
-    }
 });
 
-// Initialize on load
+// Initialize
 document.addEventListener('DOMContentLoaded', init);

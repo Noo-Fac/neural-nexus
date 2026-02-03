@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neural Nexus | Noosphere Factotum Command Center</title>
+    <title>Neural Nexus | Command Center</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -21,11 +20,7 @@
             --border-color: rgba(0, 245, 255, 0.2);
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Rajdhani', sans-serif;
@@ -35,13 +30,9 @@
             overflow-x: hidden;
         }
 
-        /* Background Grid */
         .grid-bg {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0; width: 100%; height: 100%;
             background-image: 
                 linear-gradient(rgba(0, 245, 255, 0.03) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
@@ -53,114 +44,116 @@
         .grid-bg::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             background: radial-gradient(ellipse at center, transparent 0%, var(--dark-bg) 70%);
         }
 
-        /* Scanlines */
-        .scanlines {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: repeating-linear-gradient(
-                0deg,
-                rgba(0, 0, 0, 0.1),
-                rgba(0, 0, 0, 0.1) 1px,
-                transparent 1px,
-                transparent 2px
-            );
-            pointer-events: none;
-            z-index: 1000;
-            opacity: 0.3;
-        }
-
         /* Layout */
-        .container {
+        .app-container {
             position: relative;
             z-index: 1;
-            max-width: 1800px;
-            margin: 0 auto;
-            padding: 20px;
+            display: grid;
+            grid-template-columns: 280px 1fr 320px;
+            min-height: 100vh;
         }
 
-        /* Header */
-        header {
+        @media (max-width: 1400px) {
+            .app-container { grid-template-columns: 260px 1fr 280px; }
+        }
+
+        @media (max-width: 1200px) {
+            .app-container { grid-template-columns: 1fr; }
+            .sidebar-left, .sidebar-right { display: none; }
+        }
+
+        /* Sidebar Left - Navigation & Avatar */
+        .sidebar-left {
+            background: rgba(0, 0, 0, 0.3);
+            border-right: 1px solid var(--border-color);
+            padding: 20px;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 0;
-            border-bottom: 1px solid var(--border-color);
-            margin-bottom: 30px;
+            flex-direction: column;
         }
 
         .logo {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
         }
 
-        .logo-icon {
-            font-size: 2.5rem;
+        .logo i {
+            font-size: 2rem;
             color: var(--neon-cyan);
             text-shadow: 0 0 20px var(--neon-cyan);
-            animation: pulse 2s ease-in-out infinite;
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.7; transform: scale(1.1); }
-        }
-
-        .logo-text h1 {
+        .logo h1 {
             font-family: 'Orbitron', sans-serif;
-            font-size: 1.8rem;
+            font-size: 1.2rem;
             color: var(--neon-cyan);
-            text-shadow: 0 0 10px var(--neon-cyan);
-            letter-spacing: 2px;
         }
 
-        .logo-text p {
-            font-size: 0.9rem;
-            color: rgba(255, 255, 255, 0.5);
-            letter-spacing: 3px;
-        }
-
-        /* Agent Status */
-        .agent-status {
-            display: flex;
-            align-items: center;
-            gap: 15px;
+        /* Avatar Section */
+        .avatar-section {
             background: var(--panel-bg);
             border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 15px 25px;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .avatar-container {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 15px;
+        }
+
+        .avatar-emoji {
+            font-size: 80px;
+            line-height: 120px;
+            filter: drop-shadow(0 0 20px var(--neon-cyan));
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .avatar-ring {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border: 3px solid var(--neon-cyan);
+            border-radius: 50%;
+            animation: pulse-ring 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-ring {
+            0%, 100% { box-shadow: 0 0 10px var(--neon-cyan); }
+            50% { box-shadow: 0 0 30px var(--neon-cyan), 0 0 50px var(--neon-cyan); }
+        }
+
+        .avatar-status {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1rem;
+            color: var(--neon-green);
+            text-shadow: 0 0 10px var(--neon-green);
         }
 
         .status-indicator {
-            width: 12px;
-            height: 12px;
+            display: inline-block;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
-            animation: blink 1.5s ease-in-out infinite;
-        }
-
-        .status-indicator.idle {
-            background: var(--neon-orange);
-            box-shadow: 0 0 10px var(--neon-orange);
-        }
-
-        .status-indicator.working {
             background: var(--neon-green);
+            margin-right: 8px;
             box-shadow: 0 0 10px var(--neon-green);
-        }
-
-        .status-indicator.busy {
-            background: var(--neon-pink);
-            box-shadow: 0 0 10px var(--neon-pink);
+            animation: blink 1.5s ease-in-out infinite;
         }
 
         @keyframes blink {
@@ -168,92 +161,70 @@
             50% { opacity: 0.4; }
         }
 
-        .status-text {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.9rem;
+        /* Nav Menu */
+        .nav-menu {
+            flex: 1;
         }
 
-        .status-text .label {
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 0.7rem;
-            display: block;
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 15px;
+            margin-bottom: 5px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: rgba(255, 255, 255, 0.7);
         }
 
-        .status-text .value {
+        .nav-item:hover, .nav-item.active {
+            background: rgba(0, 245, 255, 0.1);
             color: var(--neon-cyan);
-            text-transform: uppercase;
-            letter-spacing: 1px;
         }
 
-        /* Main Grid */
-        .dashboard {
-            display: grid;
-            grid-template-columns: 1fr 350px;
-            gap: 25px;
-            margin-bottom: 25px;
+        .nav-item i {
+            font-size: 1.2rem;
+            width: 25px;
         }
 
-        @media (max-width: 1200px) {
-            .dashboard {
-                grid-template-columns: 1fr;
-            }
+        /* Main Content */
+        .main-content {
+            padding: 25px;
+            overflow-y: auto;
         }
 
-        /* Panels */
-        .panel {
-            background: var(--panel-bg);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--border-color);
-            border-radius: 15px;
-            overflow: hidden;
-        }
-
-        .panel-header {
+        .main-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 20px;
-            border-bottom: 1px solid var(--border-color);
-            background: rgba(0, 245, 255, 0.05);
+            margin-bottom: 25px;
         }
 
-        .panel-header h2 {
+        .main-header h2 {
             font-family: 'Orbitron', sans-serif;
-            font-size: 1.1rem;
+            font-size: 1.5rem;
             color: var(--neon-cyan);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .panel-header h2 i {
-            font-size: 1rem;
-        }
-
-        .panel-actions {
-            display: flex;
-            gap: 10px;
         }
 
         .btn {
             background: transparent;
             border: 1px solid var(--border-color);
             color: var(--neon-cyan);
-            padding: 8px 15px;
-            border-radius: 5px;
+            padding: 10px 20px;
+            border-radius: 8px;
             cursor: pointer;
             font-family: 'Rajdhani', sans-serif;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             font-weight: 600;
             transition: all 0.3s;
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 8px;
         }
 
         .btn:hover {
             background: rgba(0, 245, 255, 0.1);
-            border-color: var(--neon-cyan);
             box-shadow: 0 0 15px rgba(0, 245, 255, 0.3);
         }
 
@@ -261,38 +232,51 @@
             background: rgba(0, 245, 255, 0.1);
         }
 
-        .btn.primary:hover {
-            background: rgba(0, 245, 255, 0.2);
+        /* Stats Row */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
         }
 
-        .btn.danger {
-            border-color: var(--neon-pink);
-            color: var(--neon-pink);
+        .stat-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
         }
 
-        .btn.danger:hover {
-            background: rgba(255, 0, 255, 0.1);
-            box-shadow: 0 0 15px rgba(255, 0, 255, 0.3);
+        .stat-card i {
+            font-size: 1.5rem;
+            color: var(--neon-cyan);
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.8rem;
+            color: #fff;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
         }
 
         /* Kanban Board */
         .kanban-board {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            padding: 20px;
-        }
-
-        @media (max-width: 900px) {
-            .kanban-board {
-                grid-template-columns: 1fr;
-            }
+            gap: 20px;
         }
 
         .kanban-column {
             background: rgba(0, 0, 0, 0.2);
-            border-radius: 10px;
-            min-height: 400px;
+            border-radius: 12px;
+            min-height: 500px;
         }
 
         .kanban-column-header {
@@ -311,93 +295,93 @@
             gap: 8px;
         }
 
-        .kanban-column-header h3 i {
-            font-size: 0.8rem;
-        }
-
-        .kanban-column.backlog .kanban-column-header h3 {
-            color: var(--neon-orange);
-        }
-
-        .kanban-column.in-progress .kanban-column-header h3 {
-            color: var(--neon-cyan);
-        }
-
-        .kanban-column.completed .kanban-column-header h3 {
-            color: var(--neon-green);
-        }
+        .kanban-column.backlog .kanban-column-header h3 { color: var(--neon-orange); }
+        .kanban-column.in-progress .kanban-column-header h3 { color: var(--neon-cyan); }
+        .kanban-column.completed .kanban-column-header h3 { color: var(--neon-green); }
 
         .task-count {
             background: rgba(255, 255, 255, 0.1);
-            padding: 2px 8px;
+            padding: 2px 10px;
             border-radius: 10px;
             font-size: 0.8rem;
         }
 
         .kanban-tasks {
             padding: 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+            min-height: 400px;
+        }
+
+        .kanban-tasks.drag-over {
+            background: rgba(0, 245, 255, 0.05);
+            border: 2px dashed var(--neon-cyan);
         }
 
         /* Task Card */
         .task-card {
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: 3px solid var(--neon-cyan);
             border-radius: 8px;
             padding: 15px;
-            cursor: pointer;
+            margin-bottom: 12px;
+            cursor: grab;
             transition: all 0.3s;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .task-card::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 3px;
-            background: var(--neon-cyan);
-        }
-
-        .task-card.priority-high::before {
-            background: var(--neon-pink);
-        }
-
-        .task-card.priority-medium::before {
-            background: var(--neon-cyan);
-        }
-
-        .task-card.priority-low::before {
-            background: var(--neon-green);
         }
 
         .task-card:hover {
             background: rgba(255, 255, 255, 0.08);
-            border-color: var(--neon-cyan);
             transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
         }
 
-        .task-card h4 {
-            font-size: 0.95rem;
+        .task-card.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .task-card.priority-high { border-left-color: var(--neon-pink); }
+        .task-card.priority-medium { border-left-color: var(--neon-cyan); }
+        .task-card.priority-low { border-left-color: var(--neon-green); }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
             margin-bottom: 8px;
-            color: #fff;
+        }
+
+        .task-header h4 {
+            font-size: 0.95rem;
+            flex: 1;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .task-actions button {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            padding: 5px;
+            transition: color 0.3s;
+        }
+
+        .task-actions button:hover {
+            color: var(--neon-cyan);
         }
 
         .task-card p {
             font-size: 0.85rem;
             color: rgba(255, 255, 255, 0.6);
             margin-bottom: 10px;
-            line-height: 1.4;
         }
 
         .task-meta {
             display: flex;
             justify-content: space-between;
-            align-items: center;
             font-size: 0.75rem;
         }
 
@@ -413,127 +397,144 @@
             color: var(--neon-cyan);
         }
 
-        .task-date {
-            color: rgba(255, 255, 255, 0.4);
-        }
-
-        /* Sidebar */
-        .sidebar {
+        /* Sidebar Right - Notes & Activity */
+        .sidebar-right {
+            background: rgba(0, 0, 0, 0.3);
+            border-left: 1px solid var(--border-color);
+            padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 25px;
+            gap: 20px;
         }
 
-        /* Logs Panel */
-        .logs-container {
-            max-height: 400px;
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(0, 245, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-header h3 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.9rem;
+            color: var(--neon-cyan);
+        }
+
+        .panel-content {
+            flex: 1;
             overflow-y: auto;
             padding: 15px;
         }
 
-        .logs-container::-webkit-scrollbar {
-            width: 6px;
+        /* Notes */
+        .notes-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+            max-height: 300px;
+            overflow-y: auto;
         }
 
-        .logs-container::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.2);
+        .note {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 0.9rem;
         }
 
-        .logs-container::-webkit-scrollbar-thumb {
-            background: var(--neon-cyan);
-            border-radius: 3px;
+        .note.gene {
+            border-left: 3px solid var(--neon-pink);
+        }
+
+        .note.noof {
+            border-left: 3px solid var(--neon-cyan);
+        }
+
+        .note.unseen {
+            background: rgba(0, 245, 255, 0.1);
+        }
+
+        .note-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 5px;
+        }
+
+        .seen-badge {
+            color: var(--neon-green);
+            font-size: 0.7rem;
+        }
+
+        .note-input-area {
+            display: flex;
+            gap: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .note-input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            color: #fff;
+            font-family: 'Rajdhani', sans-serif;
+            resize: none;
+            height: 60px;
+        }
+
+        .note-input:focus {
+            outline: none;
+            border-color: var(--neon-cyan);
+        }
+
+        /* Logs */
+        .logs-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 0.8rem;
         }
 
         .log-entry {
             display: flex;
             gap: 10px;
-            padding: 10px 0;
+            padding: 8px 0;
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            font-size: 0.85rem;
-        }
-
-        .log-entry:last-child {
-            border-bottom: none;
         }
 
         .log-time {
             color: rgba(255, 255, 255, 0.4);
             font-family: monospace;
-            font-size: 0.75rem;
-            min-width: 60px;
-        }
-
-        .log-type {
-            min-width: 20px;
-        }
-
-        .log-type i {
-            font-size: 0.8rem;
-        }
-
-        .log-type.task_created i {
-            color: var(--neon-green);
-        }
-
-        .log-type.task_updated i {
-            color: var(--neon-cyan);
-        }
-
-        .log-type.status_change i {
-            color: var(--neon-pink);
+            font-size: 0.7rem;
+            min-width: 50px;
         }
 
         .log-message {
             color: rgba(255, 255, 255, 0.7);
         }
 
-        /* Documents Panel */
-        .documents-list {
-            padding: 15px;
-        }
-
-        .document-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .document-item:hover {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .document-item i {
-            color: var(--neon-cyan);
-            font-size: 1.2rem;
-        }
-
-        .document-info {
-            flex: 1;
-        }
-
-        .document-info h4 {
-            font-size: 0.9rem;
-            color: #fff;
-            margin-bottom: 3px;
-        }
-
-        .document-info p {
-            font-size: 0.75rem;
-            color: rgba(255, 255, 255, 0.4);
-        }
-
-        /* Modal */
+        /* Modals */
         .modal-overlay {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0, 0, 0, 0.8);
             z-index: 2000;
             justify-content: center;
@@ -541,9 +542,7 @@
             backdrop-filter: blur(5px);
         }
 
-        .modal-overlay.active {
-            display: flex;
-        }
+        .modal-overlay.active { display: flex; }
 
         .modal {
             background: var(--darker-bg);
@@ -574,16 +573,9 @@
             color: rgba(255, 255, 255, 0.5);
             font-size: 1.5rem;
             cursor: pointer;
-            transition: color 0.3s;
         }
 
-        .modal-close:hover {
-            color: var(--neon-pink);
-        }
-
-        .modal-body {
-            padding: 20px;
-        }
+        .modal-body { padding: 20px; }
 
         .form-group {
             margin-bottom: 20px;
@@ -593,7 +585,6 @@
             display: block;
             margin-bottom: 8px;
             color: rgba(255, 255, 255, 0.7);
-            font-size: 0.9rem;
         }
 
         .form-group input,
@@ -607,7 +598,6 @@
             color: #fff;
             font-family: 'Rajdhani', sans-serif;
             font-size: 1rem;
-            transition: all 0.3s;
         }
 
         .form-group input:focus,
@@ -615,12 +605,6 @@
         .form-group select:focus {
             outline: none;
             border-color: var(--neon-cyan);
-            box-shadow: 0 0 10px rgba(0, 245, 255, 0.2);
-        }
-
-        .form-group textarea {
-            min-height: 120px;
-            resize: vertical;
         }
 
         .form-row {
@@ -637,240 +621,226 @@
             border-top: 1px solid var(--border-color);
         }
 
-        /* Stats Row */
-        .stats-row {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-            margin-bottom: 25px;
+        /* Thread Modal */
+        .thread-modal .modal {
+            max-width: 700px;
         }
 
-        @media (max-width: 768px) {
-            .stats-row {
-                grid-template-columns: repeat(2, 1fr);
-            }
+        .thread-comments {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
         }
 
-        .stat-card {
-            background: var(--panel-bg);
-            border: 1px solid var(--border-color);
+        .comment {
+            background: rgba(255, 255, 255, 0.05);
             border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-        }
-
-        .stat-card i {
-            font-size: 1.5rem;
-            color: var(--neon-cyan);
+            padding: 15px;
             margin-bottom: 10px;
         }
 
-        .stat-value {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 2rem;
-            color: #fff;
-            margin-bottom: 5px;
+        .comment.gene {
+            border-left: 3px solid var(--neon-pink);
         }
 
-        .stat-label {
+        .comment.noof {
+            border-left: 3px solid var(--neon-cyan);
+        }
+
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
             font-size: 0.85rem;
-            color: rgba(255, 255, 255, 0.5);
-            text-transform: uppercase;
-            letter-spacing: 1px;
         }
 
-        /* Loading Animation */
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid var(--neon-cyan);
-            border-radius: 50%;
-            border-top-color: transparent;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Glitch Effect for Title */
-        .glitch {
-            position: relative;
-        }
-
-        .glitch::before,
-        .glitch::after {
-            content: attr(data-text);
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-
-        .glitch::before {
-            color: var(--neon-pink);
-            animation: glitch-1 2s infinite linear alternate-reverse;
-            clip-path: polygon(0 0, 100% 0, 100% 35%, 0 35%);
-        }
-
-        .glitch::after {
+        .comment-header strong {
             color: var(--neon-cyan);
-            animation: glitch-2 2s infinite linear alternate-reverse;
-            clip-path: polygon(0 65%, 100% 65%, 100% 100%, 0 100%);
         }
 
-        @keyframes glitch-1 {
-            0%, 100% { transform: translate(0); }
-            20% { transform: translate(-2px, 2px); }
-            40% { transform: translate(-2px, -2px); }
+        .comment-input-area {
+            display: flex;
+            gap: 10px;
         }
 
-        @keyframes glitch-2 {
-            0%, 100% { transform: translate(0); }
-            20% { transform: translate(2px, -2px); }
-            40% { transform: translate(2px, 2px); }
+        .comment-input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            color: #fff;
+            font-family: 'Rajdhani', sans-serif;
+            resize: none;
+            height: 80px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--neon-cyan);
+            border-radius: 3px;
         }
     </style>
 </head>
 <body>
     <div class="grid-bg"></div>
-    <div class="scanlines"></div>
 
-    <div class="container">
-        <header>
+    <div class="app-container">
+        <!-- Left Sidebar -->
+        <aside class="sidebar-left">
             <div class="logo">
-                <i class="fas fa-brain logo-icon"></i>
-                <div class="logo-text">
-                    <h1 class="glitch" data-text="NEURAL NEXUS">NEURAL NEXUS</h1>
-                    <p>NOOSPHERE FACTOTUM // COMMAND CENTER</p>
+                <i class="fas fa-brain"></i>
+                <h1>NEURAL NEXUS</h1>
+            </div>
+
+            <!-- Avatar Section -->
+            <div class="avatar-section">
+                <div class="avatar-container">
+                    <div class="avatar-ring"></div>
+                    <div class="avatar-emoji" id="noofAvatar">🤖</div>
+                </div>
+                <div class="avatar-status">
+                    <span class="status-indicator" id="statusIndicator"></span>
+                    <span id="avatarStatus">WORKING</span>
                 </div>
             </div>
-            <div class="agent-status">
-                <div class="status-indicator working" id="statusIndicator"></div>
-                <div class="status-text">
-                    <span class="label">AGENT STATUS</span>
-                    <span class="value" id="statusText">WORKING</span>
+
+            <!-- Navigation -->
+            <nav class="nav-menu">
+                <div class="nav-item active" onclick="showSection('tasks')">
+                    <i class="fas fa-tasks"></i>
+                    <span>Task Board</span>
+                </div>
+                <div class="nav-item" onclick="showSection('docs')">
+                    <i class="fas fa-folder"></i>
+                    <span>Documents</span>
+                </div>
+                <div class="nav-item" onclick="showSection('analytics')">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Analytics</span>
+                </div>
+                <div class="nav-item" onclick="showSection('settings')">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="main-header">
+                <h2><i class="fas fa-columns"></i> TASK BOARD</h2>
+                <button class="btn primary" onclick="openTaskModal()">
+                    <i class="fas fa-plus"></i> New Task
+                </button>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <i class="fas fa-tasks"></i>
+                    <div class="stat-value" id="totalTasks">0</div>
+                    <div class="stat-label">Total</div>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-spinner"></i>
+                    <div class="stat-value" id="inProgress">0</div>
+                    <div class="stat-label">Active</div>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-check-circle"></i>
+                    <div class="stat-value" id="completed">0</div>
+                    <div class="stat-label">Done</div>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-file-alt"></i>
+                    <div class="stat-value" id="totalDocs">0</div>
+                    <div class="stat-label">Docs</div>
                 </div>
             </div>
-        </header>
 
-        <!-- Stats Row -->
-        <div class="stats-row">
-            <div class="stat-card">
-                <i class="fas fa-tasks"></i>
-                <div class="stat-value" id="totalTasks">0</div>
-                <div class="stat-label">Total Tasks</div>
+            <!-- Kanban -->
+            <div class="kanban-board">
+                <div class="kanban-column backlog">
+                    <div class="kanban-column-header">
+                        <h3><i class="fas fa-inbox"></i> BACKLOG</h3>
+                        <span class="task-count" id="backlogCount">0</span>
+                    </div>
+                    <div class="kanban-tasks" id="backlogTasks" data-status="backlog"></div>
+                </div>
+                <div class="kanban-column in-progress">
+                    <div class="kanban-column-header">
+                        <h3><i class="fas fa-spinner"></i> IN PROGRESS</h3>
+                        <span class="task-count" id="progressCount">0</span>
+                    </div>
+                    <div class="kanban-tasks" id="progressTasks" data-status="in-progress"></div>
+                </div>
+                <div class="kanban-column completed">
+                    <div class="kanban-column-header">
+                        <h3><i class="fas fa-check"></i> COMPLETED</h3>
+                        <span class="task-count" id="completedCount">0</span>
+                    </div>
+                    <div class="kanban-tasks" id="completedTasks" data-status="completed"></div>
+                </div>
             </div>
-            <div class="stat-card">
-                <i class="fas fa-spinner"></i>
-                <div class="stat-value" id="inProgress">0</div>
-                <div class="stat-label">In Progress</div>
-            </div>
-            <div class="stat-card">
-                <i class="fas fa-check-circle"></i>
-                <div class="stat-value" id="completed">0</div>
-                <div class="stat-label">Completed</div>
-            </div>
-            <div class="stat-card">
-                <i class="fas fa-file-alt"></i>
-                <div class="stat-value" id="totalDocs">0</div>
-                <div class="stat-label">Documents</div>
-            </div>
-        </div>
+        </main>
 
-        <!-- Main Dashboard -->
-        <div class="dashboard">
-            <!-- Kanban Board -->
+        <!-- Right Sidebar -->
+        <aside class="sidebar-right">
+            <!-- Notes Panel -->
             <div class="panel">
                 <div class="panel-header">
-                    <h2><i class="fas fa-columns"></i> TASK BOARD</h2>
-                    <div class="panel-actions">
-                        <button class="btn primary" onclick="openTaskModal()">
-                            <i class="fas fa-plus"></i> New Task
-                        </button>
-                    </div>
+                    <h3><i class="fas fa-sticky-note"></i> NOTES</h3>
+                    <span id="notesBadge" style="display:none; background:var(--neon-pink); padding:2px 8px; border-radius:10px; font-size:0.75rem;">0</span>
                 </div>
-                <div class="kanban-board">
-                    <div class="kanban-column backlog">
-                        <div class="kanban-column-header">
-                            <h3><i class="fas fa-inbox"></i> BACKLOG</h3>
-                            <span class="task-count" id="backlogCount">0</span>
-                        </div>
-                        <div class="kanban-tasks" id="backlogTasks">
-                            <!-- Tasks loaded dynamically -->
-                        </div>
-                    </div>
-                    <div class="kanban-column in-progress">
-                        <div class="kanban-column-header">
-                            <h3><i class="fas fa-spinner"></i> IN PROGRESS</h3>
-                            <span class="task-count" id="progressCount">0</span>
-                        </div>
-                        <div class="kanban-tasks" id="progressTasks">
-                            <!-- Tasks loaded dynamically -->
-                        </div>
-                    </div>
-                    <div class="kanban-column completed">
-                        <div class="kanban-column-header">
-                            <h3><i class="fas fa-check"></i> COMPLETED</h3>
-                            <span class="task-count" id="completedCount">0</span>
-                        </div>
-                        <div class="kanban-tasks" id="completedTasks">
-                            <!-- Tasks loaded dynamically -->
-                        </div>
+                <div class="panel-content">
+                    <div class="notes-list" id="notesList"></div>
+                    <div class="note-input-area">
+                        <textarea class="note-input" id="noteInput" placeholder="Leave a note..."></textarea>
+                        <button class="btn" onclick="addNote()">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Sidebar -->
-            <div class="sidebar">
-                <!-- Logs Panel -->
-                <div class="panel">
-                    <div class="panel-header">
-                        <h2><i class="fas fa-terminal"></i> SYSTEM LOGS</h2>
-                        <button class="btn" onclick="clearLogs()">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                    <div class="logs-container" id="logsContainer">
-                        <!-- Logs loaded dynamically -->
-                    </div>
+            <!-- Activity Log -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h3><i class="fas fa-terminal"></i> ACTIVITY</h3>
                 </div>
-
-                <!-- Documents Panel -->
-                <div class="panel">
-                    <div class="panel-header">
-                        <h2><i class="fas fa-folder"></i> DOCUMENTS</h2>
-                        <button class="btn" onclick="openDocumentModal()">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                    </div>
-                    <div class="documents-list" id="documentsList">
-                        <!-- Documents loaded dynamically -->
-                    </div>
+                <div class="panel-content">
+                    <div class="logs-list" id="logsList"></div>
                 </div>
             </div>
-        </div>
+        </aside>
     </div>
 
     <!-- Task Modal -->
     <div class="modal-overlay" id="taskModal">
         <div class="modal">
             <div class="modal-header">
-                <h2 id="taskModalTitle">CREATE NEW TASK</h2>
+                <h2 id="taskModalTitle">CREATE TASK</h2>
                 <button class="modal-close" onclick="closeTaskModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="taskForm">
                     <input type="hidden" id="taskId">
                     <div class="form-group">
-                        <label>Task Title</label>
-                        <input type="text" id="taskTitle" placeholder="Enter task title..." required>
+                        <label>Title</label>
+                        <input type="text" id="taskTitle" placeholder="Task title..." required>
                     </div>
                     <div class="form-group">
                         <label>Description</label>
-                        <textarea id="taskDescription" placeholder="Enter task description..."></textarea>
+                        <textarea id="taskDescription" placeholder="Description..."></textarea>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
@@ -891,45 +861,61 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Tags (comma separated)</label>
-                        <input type="text" id="taskTags" placeholder="e.g., urgent, amazon-va, coding">
+                        <label>Tags</label>
+                        <input type="text" id="taskTags" placeholder="tag1, tag2, tag3">
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button class="btn" onclick="closeTaskModal()">Cancel</button>
-                <button class="btn primary" onclick="saveTask()">
-                    <i class="fas fa-save"></i> Save Task
-                </button>
+                <button class="btn primary" onclick="saveTask()">Save Task</button>
             </div>
         </div>
     </div>
 
-    <!-- Document Modal -->
-    <div class="modal-overlay" id="documentModal">
+    <!-- Task Thread Modal -->
+    <div class="modal-overlay thread-modal" id="threadModal">
         <div class="modal">
             <div class="modal-header">
-                <h2 id="docModalTitle">NEW DOCUMENT</h2>
-                <button class="modal-close" onclick="closeDocumentModal()">&times;</button>
+                <h2 id="threadTaskTitle">TASK THREAD</h2>
+                <button class="modal-close" onclick="closeThreadModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <form id="documentForm">
-                    <input type="hidden" id="docId">
+                <input type="hidden" id="threadTaskId">
+                <div class="thread-comments" id="threadComments"></div>
+                <div class="comment-input-area">
+                    <textarea class="comment-input" id="commentInput" placeholder="Add a comment..."></textarea>
+                    <button class="btn primary" onclick="addComment()">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Document Editor Modal -->
+    <div class="modal-overlay" id="documentEditorModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="docEditorTitle">DOCUMENT EDITOR</h2>
+                <button class="modal-close" onclick="closeDocumentEditor()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="docEditForm">
+                    <input type="hidden" id="docEditId">
                     <div class="form-group">
-                        <label>Document Title</label>
-                        <input type="text" id="docTitle" placeholder="Enter document title..." required>
+                        <label>Title</label>
+                        <input type="text" id="docEditTitle" placeholder="Document title..." required>
                     </div>
                     <div class="form-group">
                         <label>Content</label>
-                        <textarea id="docContent" placeholder="Enter document content..." rows="15"></textarea>
+                        <textarea id="docEditContent" rows="15" placeholder="Write your document here..."></textarea>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button class="btn" onclick="closeDocumentModal()">Cancel</button>
-                <button class="btn primary" onclick="saveDocument()">
-                    <i class="fas fa-save"></i> Save Document
-                </button>
+                <button class="btn" onclick="closeDocumentEditor()">Cancel</button>
+                <button class="btn primary" onclick="saveDocumentEdit()">Save Document</button>
             </div>
         </div>
     </div>

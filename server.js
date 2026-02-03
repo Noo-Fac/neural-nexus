@@ -68,6 +68,25 @@ db.serialize(() => {
 
   // Initialize agent status
   db.run(`INSERT OR IGNORE INTO agent_status (id, status) VALUES (1, 'idle')`);
+
+  // Notes table
+  db.run(`CREATE TABLE IF NOT EXISTS notes (
+    id TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    author TEXT,
+    seen BOOLEAN DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  // Task comments table
+  db.run(`CREATE TABLE IF NOT EXISTS task_comments (
+    id TEXT PRIMARY KEY,
+    task_id TEXT,
+    content TEXT NOT NULL,
+    author TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+  )`);
 });
 
 // WebSocket for real-time updates
@@ -313,6 +332,94 @@ app.patch('/api/documents/:id', (req, res) => {
       });
     }
   );
+});
+
+// NOTES API
+
+// Get all notes
+app.get('/api/notes', (req, res) => {
+  db.all('SELECT * FROM notes ORDER BY created_at DESC LIMIT 50', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// Get unseen notes
+app.get('/api/notes/unseen', (req, res) => {
+  db.all('SELECT * FROM notes WHERE seen = 0 ORDER BY created_at DESC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// Create note
+app.post('/api/notes', (req, res) => {
+  const { content, author } = req.body;
+  const id = uuidv4();
+  
+  db.run(
+    `INSERT INTO notes (id, content, author) VALUES (?, ?, ?)`,
+    [id, content, author],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      db.get('SELECT * FROM notes WHERE id = ?', [id], (err, row) => {
+        broadcast({ type: 'note_added', data: row });
+        res.status(201).json(row);
+      });
+    }
+  );
+});
+
+// Mark note as seen
+app.post('/api/notes/:id/seen', (req, res) => {
+  db.run('UPDATE notes SET seen = 1 WHERE id = ?', [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Note marked as seen' });
+  });
+});
+
+// TASK COMMENTS API
+
+// Get comments for a task
+app.get('/api/tasks/:taskId/comments', (req, res) => {
+  db.all(
+    'SELECT * FROM task_comments WHERE task_id = ? ORDER BY created_at ASC',
+    [req.params.taskId],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows);
+    }
+  );
+});
+
+// Add comment to task
+app.post('/api/tasks/:taskId/comments', (req, res) => {
+  const { content, author } = req.body;
+  const taskId = req.params.taskId;
+  const id = uuidv4();
+  
+  db.run(
+    `INSERT INTO task_comments (id, task_id, content, author) VALUES (?, ?, ?, ?)`,
+    [id, taskId, content, author],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      db.get('SELECT * FROM task_comments WHERE id = ?', [id], (err, row) => {
+        broadcast({ type: 'comment_added', data: row });
+        res.status(201).json(row);
+      });
+    }
+  );
+});
+
+// Get single task
+app.get('/api/tasks/:id', (req, res) => {
+  db.get('SELECT * FROM tasks WHERE id = ?', [req.params.id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: 'Task not found' });
+    res.json(row);
+  });
 });
 
 // Health check
