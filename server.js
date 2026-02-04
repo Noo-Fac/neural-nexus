@@ -17,7 +17,58 @@ const NEXUS_URL = 'https://nexus.noospherefactotum.com';
 // Toggle for Telegram notifications - set to true to re-enable
 const TELEGRAM_ALERTS_ENABLED = true;
 
-// Note: OpenClaw integration removed - using heartbeat polling instead
+// ===== OPENCLAW WEBHOOK INTEGRATION =====
+// Send Nexus activity to OpenClaw via webhook
+const OPENCLAW_WEBHOOK_URL = process.env.OPENCLAW_WEBHOOK_URL || 'http://host.docker.internal:3000/hooks/nexus';
+const OPENCLAW_WEBHOOK_TOKEN = process.env.OPENCLAW_WEBHOOK_TOKEN || 'nexus-webhook-token-2024';
+
+/**
+ * Send webhook notification to OpenClaw
+ * @param {string} type - Notification type
+ * @param {string} content - Message content
+ * @param {string} from - Who made the change
+ */
+function notifyOpenClaw(type, content, from = 'Gene') {
+  const payload = JSON.stringify({
+    token: OPENCLAW_WEBHOOK_TOKEN,
+    data: {
+      from: from,
+      type: type,
+      content: content
+    }
+  });
+
+  const options = {
+    hostname: 'host.docker.internal',
+    port: 3000,
+    path: '/hooks/nexus',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(payload)
+    }
+  };
+
+  const req = http.request(options, (res) => {
+    let data = '';
+    res.on('data', (chunk) => data += chunk);
+    res.on('end', () => {
+      if (res.statusCode === 200) {
+        console.log(`🔔 OpenClaw webhook sent: ${type}`);
+      } else {
+        console.error('❌ OpenClaw webhook failed:', res.statusCode, data);
+      }
+    });
+  });
+
+  req.on('error', (error) => {
+    console.log(`🔕 OpenClaw webhook not available: ${error.message}`);
+  });
+
+  req.write(payload);
+  req.end();
+}
+// =========================================
 
 /**
  * Send Telegram notification
@@ -299,6 +350,9 @@ app.post('/api/tasks', (req, res) => {
         
         // 🔔 Send Telegram notification
         sendTelegramNotification('New Project', title, created_by || 'Gene');
+        
+        // 🔔 Send webhook to OpenClaw
+        notifyOpenClaw('New Project', title, created_by || 'Gene');
         
         res.status(201).json(row);
       });
@@ -632,6 +686,9 @@ app.post('/api/notes', (req, res) => {
         const preview = content.length > 100 ? content.substring(0, 100) + '...' : content;
         sendTelegramNotification('New Note', preview, author || 'Gene');
         
+        // 🔔 Send webhook to OpenClaw
+        notifyOpenClaw('New Note', content, author || 'Gene');
+        
         res.status(201).json(row);
       });
     }
@@ -690,6 +747,9 @@ app.post('/api/tasks/:taskId/comments', (req, res) => {
           const projectTitle = taskRow ? taskRow.title : 'Unknown Project';
           const preview = content.length > 100 ? content.substring(0, 100) + '...' : content;
           sendTelegramNotification('New Comment', `On "${projectTitle}": ${preview}`, author || 'Gene');
+          
+          // 🔔 Send webhook to OpenClaw
+          notifyOpenClaw('New Comment', `On "${projectTitle}": ${preview}`, author || 'Gene');
         });
         
         res.status(201).json(row);
