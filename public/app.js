@@ -217,20 +217,32 @@ async function loadTasks() {
     try {
         const response = await fetch(`${API_BASE}/api/tasks`);
         const tasks = await response.json();
-        
+
+        const statusMap = {
+            'backlog': 'backlogTasks',
+            'in-progress': 'progressTasks',
+            'completed': 'completedTasks'
+        };
+
+        const counterMap = {
+            'backlog': 'backlogCount',
+            'in-progress': 'progressCount',
+            'completed': 'completedCount'
+        };
+
         ['backlog', 'in-progress', 'completed'].forEach(status => {
-            const container = document.getElementById(`${status.replace('-', '')}Tasks`);
+            const container = document.getElementById(statusMap[status]);
             if (container) {
                 container.innerHTML = '';
                 const statusTasks = tasks.filter(t => t.status === status);
                 statusTasks.forEach(task => container.appendChild(createTaskCard(task)));
-                
+
                 // Update counter
-                const counter = document.getElementById(`${status.replace('-', '')}Count`);
+                const counter = document.getElementById(counterMap[status]);
                 if (counter) counter.textContent = statusTasks.length;
             }
         });
-        
+
         updateStats(tasks);
     } catch (error) {
         console.error('Error loading tasks:', error);
