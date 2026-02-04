@@ -1,6 +1,6 @@
 {
   "name": "neural-nexus",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Neural Nexus - Noosphere Factotum Command Center",
   "main": "server.js",
   "scripts": {
