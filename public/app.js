@@ -149,11 +149,17 @@ function handleDragStart(e, taskId) {
     e.target.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', taskId);
+    // Store task ID in multiple places for reliability
+    e.dataTransfer.setData('taskId', taskId);
     console.log('Drag started:', taskId);
 }
 
 function handleDragEnd(e) {
     e.target.classList.remove('dragging');
+    // Clear drag-over from all columns
+    document.querySelectorAll('.kanban-tasks').forEach(col => {
+        col.classList.remove('drag-over');
+    });
     draggedTask = null;
     console.log('Drag ended');
 }
@@ -179,7 +185,10 @@ async function handleDrop(e) {
     e.stopPropagation();
     e.currentTarget.classList.remove('drag-over');
     
-    const taskId = e.dataTransfer.getData('text/plain') || draggedTask;
+    // Try multiple ways to get the task ID
+    let taskId = e.dataTransfer.getData('text/plain') || 
+                 e.dataTransfer.getData('taskId') || 
+                 draggedTask;
     
     if (!taskId) {
         console.error('No task ID found in drop');
@@ -198,15 +207,18 @@ async function handleDrop(e) {
         
         if (response.ok) {
             console.log('Task moved successfully');
-            await loadTasks();
             addLog('task_moved', `Task moved to ${newStatus}`);
+            // Reload tasks after a short delay to ensure state is updated
+            setTimeout(() => loadTasks(), 100);
         } else {
             console.error('Failed to move task:', response.status);
-            await loadTasks(); // Reload to restore state
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+            loadTasks(); // Reload to restore state
         }
     } catch (error) {
         console.error('Failed to move task:', error);
-        await loadTasks(); // Reload to restore state
+        loadTasks(); // Reload to restore state
     } finally {
         draggedTask = null;
     }
@@ -255,30 +267,49 @@ function createTaskCard(task) {
     card.draggable = true;
     card.dataset.taskId = task.id;
     
+    // Use data attributes to store task data for safer event handling
+    card.dataset.taskData = JSON.stringify(task);
+    
     card.innerHTML = `
         <div class="task-header">
             <h4>${escapeHtml(task.title)}</h4>
             <div class="task-actions">
-                <button onclick="openTaskThread('${task.id}')" title="View Thread">
+                <button class="thread-btn" data-task-id="${task.id}" title="View Thread">
                     <i class="fas fa-comments"></i>
                 </button>
-                <button onclick="openTaskModal(${JSON.stringify(task).replace(/"/g, '&quot;')})" title="Edit">
+                <button class="edit-btn" data-task-id="${task.id}" title="Edit">
                     <i class="fas fa-edit"></i>
                 </button>
-                <button onclick="deleteTask('${task.id}', '${escapeHtml(task.title).replace(/'/g, "\\'")}')" title="Delete Task" style="color: #ff4444;">
+                <button class="delete-btn" data-task-id="${task.id}" data-task-title="${escapeHtml(task.title).replace(/"/g, '&quot;')}" title="Delete Task" style="color: #ff4444;">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
         </div>
-        <p>${escapeHtml(task.description || '').substring(0, 100)}...</p>
+        <p>${escapeHtml(task.description || '').substring(0, 100)}${task.description && task.description.length > 100 ? '...' : ''}</p>
         <div class="task-meta">
             <div class="task-tags">
-                ${task.tags ? task.tags.split(',').map(t => `<span class="tag">${t.trim()}</span>`).join('') : ''}
+                ${task.tags ? task.tags.split(',').map(t => `<span class="tag">${escapeHtml(t.trim())}</span>`).join('') : ''}
             </div>
             <span class="task-date">${formatDate(task.created_at)}</span>
         </div>
         ${task.comments ? `<div class="task-comments-count"><i class="fas fa-comment"></i> ${task.comments}</div>` : ''}
     `;
+    
+    // Add event listeners instead of inline onclick
+    card.querySelector('.thread-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        openTaskThread(task.id);
+    });
+    
+    card.querySelector('.edit-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        openTaskModal(task);
+    });
+    
+    card.querySelector('.delete-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteTask(task.id, task.title);
+    });
     
     card.addEventListener('dragstart', (e) => handleDragStart(e, task.id));
     card.addEventListener('dragend', handleDragEnd);
@@ -356,15 +387,22 @@ async function loadNotes() {
             div.className = `note ${note.seen ? 'seen' : 'unseen'} ${note.author === 'Noof' ? 'noof' : 'gene'}`;
             div.innerHTML = `
                 <div class="note-header">
-                    <strong>${note.author}</strong>
+                    <strong>${escapeHtml(note.author)}</strong>
                     <span>${formatTime(note.created_at)}</span>
-                    <button onclick="deleteNote('${note.id}')" title="Delete Note" style="color: #ff4444; background: none; border: none; cursor: pointer;">
+                    <button class="delete-note-btn" data-note-id="${note.id}" title="Delete Note" style="color: #ff4444; background: none; border: none; cursor: pointer;">
                         <i class="fas fa-trash"></i>
                     </button>
                     ${note.seen ? '<span class="seen-badge"><i class="fas fa-check-double"></i> Seen</span>' : ''}
                 </div>
                 <p>${escapeHtml(note.content)}</p>
             `;
+            
+            // Add event listener for delete button
+            div.querySelector('.delete-note-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteNote(note.id);
+            });
+            
             container.appendChild(div);
             
             // Mark as seen if I'm Noof and it's from Gene
@@ -935,28 +973,10 @@ function initGlitchEffects() {
     setTimeout(triggerGlitch, 3000);
 }
 
-// 3D Card Tilt Effect
+// 3D Card Tilt Effect - DISABLED to prevent drag/drop issues
 function initCardTilt() {
-    document.addEventListener('mousemove', (e) => {
-        const cards = document.querySelectorAll('.task-card');
-        
-        cards.forEach(card => {
-            const rect = card.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
-                const centerX = rect.width / 2;
-                const centerY = rect.height / 2;
-                const rotateX = (y - centerY) / 10;
-                const rotateY = (centerX - x) / 10;
-                
-                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-5px) scale(1.02)`;
-            } else {
-                card.style.transform = '';
-            }
-        });
-    });
+    // Disabled - was interfering with drag and drop
+    // The hover effect in CSS is sufficient
 }
 
 // Initialize
