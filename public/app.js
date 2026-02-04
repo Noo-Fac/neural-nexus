@@ -9,6 +9,7 @@ let draggedTask = null;
 // Avatar States
 const AVATAR_STATES = {
     idle: { emoji: '😴', color: '#ff6600', label: 'IDLE' },
+    monitoring: { emoji: '🧠', color: '#00f5ff', label: 'MONITORING' },
     working: { emoji: '🤖', color: '#00ff00', label: 'WORKING' },
     busy: { emoji: '⚡', color: '#ff00ff', label: 'BUSY' },
     bored: { emoji: '🥱', color: '#00f5ff', label: 'BORED' }
@@ -61,9 +62,11 @@ function handleWebSocketMessage(data) {
             break;
         case 'task_created':
         case 'task_updated':
+        case 'task_deleted':
             loadTasks();
             break;
         case 'note_added':
+        case 'note_deleted':
             loadNotes();
             checkForUnseenNotes();
             break;
@@ -250,6 +253,9 @@ function createTaskCard(task) {
                 <button onclick="openTaskModal(${JSON.stringify(task).replace(/"/g, '&quot;')})" title="Edit">
                     <i class="fas fa-edit"></i>
                 </button>
+                <button onclick="deleteTask('${task.id}', '${escapeHtml(task.title).replace(/'/g, "\\'")}')" title="Delete Task" style="color: #ff4444;">
+                    <i class="fas fa-trash"></i>
+                </button>
             </div>
         </div>
         <p>${escapeHtml(task.description || '').substring(0, 100)}...</p>
@@ -340,6 +346,9 @@ async function loadNotes() {
                 <div class="note-header">
                     <strong>${note.author}</strong>
                     <span>${formatTime(note.created_at)}</span>
+                    <button onclick="deleteNote('${note.id}')" title="Delete Note" style="color: #ff4444; background: none; border: none; cursor: pointer;">
+                        <i class="fas fa-trash"></i>
+                    </button>
                     ${note.seen ? '<span class="seen-badge"><i class="fas fa-check-double"></i> Seen</span>' : ''}
                 </div>
                 <p>${escapeHtml(note.content)}</p>
@@ -378,6 +387,28 @@ async function addNote() {
         }
     } catch (e) {
         console.error('Failed to add note:', e);
+    }
+}
+
+async function deleteNote(noteId) {
+    if (!confirm('Are you sure you want to delete this note?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/notes/${noteId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            loadNotes();
+            addLog('note_deleted', 'Note deleted');
+        } else {
+            alert('Failed to delete note');
+        }
+    } catch (error) {
+        console.error('Error deleting note:', error);
+        alert('Failed to delete note');
     }
 }
 
@@ -738,6 +769,28 @@ async function saveTask() {
         }
     } catch (error) {
         console.error('Error saving task:', error);
+    }
+}
+
+async function deleteTask(taskId, taskTitle) {
+    if (!confirm(`Are you sure you want to delete "${taskTitle}"?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            addLog('task_deleted', `Task "${taskTitle}" deleted`);
+            loadTasks();
+        } else {
+            alert('Failed to delete task');
+        }
+    } catch (error) {
+        console.error('Error deleting task:', error);
+        alert('Failed to delete task');
     }
 }
 

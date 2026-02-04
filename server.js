@@ -650,6 +650,16 @@ app.post('/api/notes/:id/seen', (req, res) => {
   });
 });
 
+// Delete note
+app.delete('/api/notes/:id', (req, res) => {
+  db.run('DELETE FROM notes WHERE id = ?', [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    
+    broadcast({ type: 'note_deleted', data: { id: req.params.id } });
+    res.json({ message: 'Note deleted' });
+  });
+});
+
 // TASK COMMENTS API
 
 // Get comments for a task
