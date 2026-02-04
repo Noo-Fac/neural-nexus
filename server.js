@@ -17,60 +17,7 @@ const NEXUS_URL = 'https://nexus.noospherefactotum.com';
 // Toggle for Telegram notifications - set to true to re-enable
 const TELEGRAM_ALERTS_ENABLED = false;
 
-// ===== OPENCLAW WEB GUI CHAT INTEGRATION =====
-// Send Nexus activity to OpenClaw web GUI chat so Noof can see it
-const OPENCLAY_GATEWAY_URL = process.env.OPENCLAY_GATEWAY_URL || 'http://localhost:18789';
-const OPENCLAY_SESSION_KEY = process.env.OPENCLAY_SESSION_KEY || 'agent:main:main';
-const OPENCLAY_TOKEN = process.env.OPENCLAY_TOKEN || 'noof-secret-token-2024';
-
-/**
- * Send notification to OpenClaw web GUI chat
- * @param {string} source - Source of message (Note, Comment, Task)
- * @param {string} content - Message content
- * @param {string} metadata - Additional context (task title, etc.)
- */
-function notifyOpenClaw(source, content, metadata = '') {
-  // Only notify when Gene creates content (not when Noof does)
-  const message = `[Nexus:${source}] ${metadata ? metadata + ': ' : ''}${content}`;
-  
-  const payload = JSON.stringify({
-    session_key: OPENCLAY_SESSION_KEY,
-    message: message,
-    token: OPENCLAY_TOKEN
-  });
-
-  const options = {
-    hostname: 'localhost',
-    port: 18789,
-    path: '/api/v1/sessions/send',
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(payload)
-    }
-  };
-
-  const req = http.request(options, (res) => {
-    let data = '';
-    res.on('data', (chunk) => data += chunk);
-    res.on('end', () => {
-      if (res.statusCode === 200) {
-        console.log(`🔔 OpenClaw notified: [Nexus:${source}]`);
-      } else {
-        console.error('❌ OpenClaw notification failed:', res.statusCode, data);
-      }
-    });
-  });
-
-  req.on('error', (error) => {
-    // Silently fail - OpenClaw might not be running
-    console.log(`🔕 OpenClaw not available: ${error.message}`);
-  });
-
-  req.write(payload);
-  req.end();
-}
-// =============================================
+// Note: OpenClaw integration removed - using heartbeat polling instead
 
 /**
  * Send Telegram notification
@@ -358,12 +305,6 @@ app.post('/api/tasks', (req, res) => {
         
         // 🔔 Send Telegram notification
         sendTelegramNotification('New Task', title, created_by || 'Gene');
-        
-        // 🔔 Notify OpenClaw web GUI (only when Gene creates)
-        if (created_by === 'Gene' || !created_by) {
-          const taskInfo = description ? `${title} - ${description.substring(0, 100)}${description.length > 100 ? '...' : ''}` : title;
-          notifyOpenClaw('Task', taskInfo);
-        }
         
         res.status(201).json(row);
       });
@@ -697,11 +638,6 @@ app.post('/api/notes', (req, res) => {
         const preview = content.length > 100 ? content.substring(0, 100) + '...' : content;
         sendTelegramNotification('New Note', preview, author || 'Gene');
         
-        // 🔔 Notify OpenClaw web GUI (only when Gene writes)
-        if (author === 'Gene' || !author) {
-          notifyOpenClaw('Note', content);
-        }
-        
         res.status(201).json(row);
       });
     }
@@ -760,11 +696,6 @@ app.post('/api/tasks/:taskId/comments', (req, res) => {
           const taskTitle = taskRow ? taskRow.title : 'Unknown Task';
           const preview = content.length > 100 ? content.substring(0, 100) + '...' : content;
           sendTelegramNotification('New Comment', `On "${taskTitle}": ${preview}`, author || 'Gene');
-          
-          // 🔔 Notify OpenClaw web GUI (only when Gene writes)
-          if (author === 'Gene' || !author) {
-            notifyOpenClaw('Comment', content, taskTitle);
-          }
         });
         
         res.status(201).json(row);
