@@ -11,7 +11,7 @@ const https = require('https');
 // ===== NEXUS ALARM SYSTEM - Telegram Notifications =====
 // DISABLED by default - use WebSocket for real-time sync instead
 const TELEGRAM_BOT_TOKEN = '7977554413:AAFa2FQEXI6b5bTdFgWwS_QsOprbjb2tvZc';
-const TELEGRAM_CHAT_ID = '-1002145006068';
+const TELEGRAM_CHAT_ID = '-1005145006068';
 const NEXUS_URL = 'https://nexus.noospherefactotum.com';
 
 // Toggle for Telegram notifications - set to true to re-enable
