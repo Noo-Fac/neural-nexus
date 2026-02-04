@@ -7,6 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 const WebSocket = require('ws');
 const http = require('http');
 const https = require('https');
+const { logNotification } = require('./notification-logger');
 
 // ===== NEXUS ALARM SYSTEM - Telegram Notifications =====
 // DISABLED by default - use WebSocket for real-time sync instead
@@ -351,8 +352,8 @@ app.post('/api/tasks', (req, res) => {
         // 🔔 Send Telegram notification
         sendTelegramNotification('New Project', title, created_by || 'Gene');
         
-        // 🔔 Send webhook to OpenClaw
-        notifyOpenClaw('New Project', title, created_by || 'Gene');
+        // 🔔 Log notification for OpenClaw to read
+        logNotification('New Project', title, created_by || 'Gene');
         
         res.status(201).json(row);
       });
@@ -686,8 +687,8 @@ app.post('/api/notes', (req, res) => {
         const preview = content.length > 100 ? content.substring(0, 100) + '...' : content;
         sendTelegramNotification('New Note', preview, author || 'Gene');
         
-        // 🔔 Send webhook to OpenClaw
-        notifyOpenClaw('New Note', content, author || 'Gene');
+        // 🔔 Log notification for OpenClaw to read
+        logNotification('New Note', content, author || 'Gene');
         
         res.status(201).json(row);
       });
@@ -748,8 +749,8 @@ app.post('/api/tasks/:taskId/comments', (req, res) => {
           const preview = content.length > 100 ? content.substring(0, 100) + '...' : content;
           sendTelegramNotification('New Comment', `On "${projectTitle}": ${preview}`, author || 'Gene');
           
-          // 🔔 Send webhook to OpenClaw
-          notifyOpenClaw('New Comment', `On "${projectTitle}": ${preview}`, author || 'Gene');
+          // 🔔 Log notification for OpenClaw to read
+          logNotification('New Comment', `On "${projectTitle}": ${preview}`, author || 'Gene');
         });
         
         res.status(201).json(row);
