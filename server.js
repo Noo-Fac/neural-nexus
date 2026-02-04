@@ -741,11 +741,23 @@ app.post('/api/noof/status', (req, res) => {
       if (err) return res.status(500).json({ error: err.message });
       
       db.get('SELECT * FROM agent_status WHERE id = 1', (err, row) => {
-        broadcast({ type: 'status', data: row });
+        if (!err && row) {
+          broadcast({ type: 'status', data: row });
+          console.log(`🤖 Status updated: ${status} | Task: ${current_task || 'None'} | Last active: ${row.last_active}`);
+        }
         res.json(row);
       });
     }
   );
+});
+
+// GET endpoint for Noof status (for debugging)
+app.get('/api/noof/status', (req, res) => {
+  db.get('SELECT * FROM agent_status WHERE id = 1', (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: 'Status not found' });
+    res.json(row);
+  });
 });
 
 // Test Telegram notification
