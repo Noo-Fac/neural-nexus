@@ -768,7 +768,7 @@ function openTaskModal(task = null) {
     form.reset();
     
     if (task) {
-        title.textContent = 'EDIT TASK';
+        title.textContent = 'EDIT PROJECT';
         document.getElementById('taskId').value = task.id;
         document.getElementById('taskTitle').value = task.title;
         document.getElementById('taskDescription').value = task.description || '';
@@ -776,7 +776,7 @@ function openTaskModal(task = null) {
         document.getElementById('taskPriority').value = task.priority;
         document.getElementById('taskTags').value = task.tags || '';
     } else {
-        title.textContent = 'CREATE NEW TASK';
+        title.textContent = 'CREATE NEW PROJECT';
         document.getElementById('taskId').value = '';
     }
     

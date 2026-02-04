@@ -15,7 +15,7 @@ const TELEGRAM_CHAT_ID = '6814413391';
 const NEXUS_URL = 'https://nexus.noospherefactotum.com';
 
 // Toggle for Telegram notifications - set to true to re-enable
-const TELEGRAM_ALERTS_ENABLED = false;
+const TELEGRAM_ALERTS_ENABLED = true;
 
 // Note: OpenClaw integration removed - using heartbeat polling instead
 
@@ -31,13 +31,7 @@ function sendTelegramNotification(type, content, from = 'Gene') {
     console.log(`🔕 Telegram notification skipped (disabled): ${type}`);
     return;
   }
-  const message = `🚨 NEXUS ALERT
-
-Type: ${type}
-From: ${from}
-Content: ${content}
-
-View: ${NEXUS_URL}`;
+  const message = `[Nexus:${type}] ${from}: ${content}`;
 
   const payload = JSON.stringify({
     chat_id: TELEGRAM_CHAT_ID,
@@ -304,7 +298,7 @@ app.post('/api/tasks', (req, res) => {
         );
         
         // 🔔 Send Telegram notification
-        sendTelegramNotification('New Task', title, created_by || 'Gene');
+        sendTelegramNotification('New Project', title, created_by || 'Gene');
         
         res.status(201).json(row);
       });
@@ -352,7 +346,7 @@ app.patch('/api/tasks/:id', (req, res) => {
           );
           
           // 🔔 Send Telegram notification for status change
-          sendTelegramNotification('Task Moved', `"${row.title}" → ${status}`, 'Gene');
+          sendTelegramNotification('Project Moved', `"${row.title}" → ${status}`, 'Gene');
         }
         
         res.json(row);
@@ -691,11 +685,11 @@ app.post('/api/tasks/:taskId/comments', (req, res) => {
       db.get('SELECT * FROM task_comments WHERE id = ?', [id], (err, row) => {
         broadcast({ type: 'comment_added', data: row });
         
-        // 🔔 Send Telegram notification with task info
+        // 🔔 Send Telegram notification with project info
         db.get('SELECT title FROM tasks WHERE id = ?', [taskId], (err, taskRow) => {
-          const taskTitle = taskRow ? taskRow.title : 'Unknown Task';
+          const projectTitle = taskRow ? taskRow.title : 'Unknown Project';
           const preview = content.length > 100 ? content.substring(0, 100) + '...' : content;
-          sendTelegramNotification('New Comment', `On "${taskTitle}": ${preview}`, author || 'Gene');
+          sendTelegramNotification('New Comment', `On "${projectTitle}": ${preview}`, author || 'Gene');
         });
         
         res.status(201).json(row);
