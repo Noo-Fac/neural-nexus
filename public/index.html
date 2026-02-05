@@ -112,7 +112,7 @@
             padding: 15px;
             margin-bottom: 12px;
             cursor: grab;
-            transition: all 0.3s;
+            transition: all 0.1s ease-out;
             transform-style: preserve-3d;
             perspective: 1000px;
             position: relative;
@@ -125,6 +125,8 @@
             top: 0; left: -100%; width: 100%; height: 100%;
             background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
             transition: left 0.5s;
+            pointer-events: none;
+            z-index: 1;
         }
 
         .task-card:hover::before {
@@ -133,14 +135,38 @@
 
         .task-card:hover {
             background: rgba(255, 255, 255, 0.08);
-            transform: translateY(-2px) rotateX(5deg);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 245, 255, 0.2);
         }
 
         .task-card.dragging {
             opacity: 0.5;
             cursor: grabbing;
-            transform: scale(1.05) rotate(2deg);
+            transform: scale(1.05) rotate(2deg) !important;
+        }
+
+        /* Holographic shimmer effect on cards */
+        .task-card::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                45deg,
+                transparent 30%,
+                rgba(0, 245, 255, 0.05) 50%,
+                transparent 70%
+            );
+            transform: rotate(45deg);
+            animation: holographic-shimmer 3s infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes holographic-shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
         }
 
         /* Enhanced Avatar Pulse */

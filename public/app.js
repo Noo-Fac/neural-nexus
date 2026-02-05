@@ -1268,10 +1268,38 @@ function initGlitchEffects() {
     setTimeout(triggerGlitch, 3000);
 }
 
-// 3D Card Tilt Effect - DISABLED to prevent drag/drop issues
+// 3D Card Tilt Effect - Holographic hover
 function initCardTilt() {
-    // Disabled - was interfering with drag and drop
-    // The hover effect in CSS is sufficient
+    const cards = document.querySelectorAll('.task-card');
+    
+    cards.forEach(card => {
+        let isDragging = false;
+        
+        card.addEventListener('dragstart', () => { isDragging = true; });
+        card.addEventListener('dragend', () => { isDragging = false; });
+        
+        card.addEventListener('mousemove', (e) => {
+            if (isDragging) return;
+            
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            
+            const rotateX = (y - centerY) / 10;
+            const rotateY = (centerX - x) / 10;
+            
+            card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-2px)`;
+        });
+        
+        card.addEventListener('mouseleave', () => {
+            if (!isDragging) {
+                card.style.transform = '';
+            }
+        });
+    });
 }
 
 // Initialize
