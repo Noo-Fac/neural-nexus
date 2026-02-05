@@ -6,6 +6,34 @@ let currentUser = 'Gene';
 let currentTaskId = null;
 let draggedTask = null;
 
+// Track last viewed comment timestamps for notifications
+let lastViewedComments = JSON.parse(localStorage.getItem('lastViewedComments') || '{}');
+
+// Save to localStorage
+function saveLastViewedComments() {
+    localStorage.setItem('lastViewedComments', JSON.stringify(lastViewedComments));
+}
+
+// Check if task has new comments (comments added since last view)
+function hasNewComments(task) {
+    if (!task.comments || task.comments === 0) return false;
+    const lastViewed = lastViewedComments[task.id];
+    if (!lastViewed) {
+        // Never viewed, show as new
+        return true;
+    }
+    // Check if task has been updated since last view
+    return new Date(task.updated_at) > new Date(lastViewed);
+}
+
+// Mark task comments as viewed
+function markCommentsAsViewed(taskId) {
+    lastViewedComments[taskId] = new Date().toISOString();
+    saveLastViewedComments();
+    // Reload tasks to update notification badges
+    loadTasks();
+}
+
 // Avatar States
 const AVATAR_STATES = {
     idle: { emoji: '😴', color: '#ff6600', label: 'IDLE' },
@@ -74,6 +102,16 @@ function handleWebSocketMessage(data) {
         case 'subagent_complete':
         case 'subagent_timeout':
             loadSubAgents();
+            break;
+        case 'comment_added':
+        case 'comment_updated':
+        case 'comment_deleted':
+            // Refresh thread if it's currently open
+            if (currentTaskId && data.data.task_id === currentTaskId) {
+                openTaskThread(currentTaskId);
+            }
+            // Update comment count on task card
+            loadTasks();
             break;
     }
 }
@@ -274,8 +312,9 @@ function createTaskCard(task) {
         <div class="task-header">
             <h4>${escapeHtml(task.title)}</h4>
             <div class="task-actions">
-                <button class="thread-btn" data-task-id="${task.id}" title="View Thread">
+                <button class="thread-btn" data-task-id="${task.id}" title="View Thread" style="position: relative;">
                     <i class="fas fa-comments"></i>
+                    ${hasNewComments(task) ? '<span class="notification-dot" style="position: absolute; top: -4px; right: -4px; width: 10px; height: 10px; background: #ff4444; border-radius: 50%; border: 2px solid #0a0a0f;"></span>' : ''}
                 </button>
                 <button class="edit-btn" data-task-id="${task.id}" title="Edit">
                     <i class="fas fa-edit"></i>
@@ -321,6 +360,8 @@ function createTaskCard(task) {
 // Task Thread/Comments
 async function openTaskThread(taskId) {
     currentTaskId = taskId;
+    markCommentsAsViewed(taskId); // Mark as viewed when opening thread
+
     const task = await fetch(`${API_BASE}/api/tasks/${taskId}`).then(r => r.json());
     const comments = await fetch(`${API_BASE}/api/tasks/${taskId}/comments`).then(r => r.json());
     
@@ -333,14 +374,36 @@ async function openTaskThread(taskId) {
     comments.forEach(comment => {
         const div = document.createElement('div');
         div.className = `comment ${comment.author === 'Noof' ? 'noof' : 'gene'}`;
+        div.dataset.commentId = comment.id;
+
+        const canEdit = comment.author === currentUser;
         div.innerHTML = `
             <div class="comment-header">
                 <strong>${comment.author}</strong>
                 <span>${formatTime(comment.created_at)}</span>
+                ${canEdit ? `
+                <div class="comment-actions">
+                    <button class="edit-comment-btn" data-comment-id="${comment.id}" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="delete-comment-btn" data-comment-id="${comment.id}" title="Delete" style="color: #ff4444;">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+                ` : ''}
             </div>
-            <p>${escapeHtml(comment.content)}</p>
+            <p class="comment-content">${escapeHtml(comment.content)}</p>
         `;
         container.appendChild(div);
+
+        // Add event listeners for edit and delete buttons
+        if (canEdit) {
+            const editBtn = div.querySelector('.edit-comment-btn');
+            const deleteBtn = div.querySelector('.delete-comment-btn');
+
+            editBtn.addEventListener('click', () => editComment(comment.id, comment.content));
+            deleteBtn.addEventListener('click', () => deleteComment(comment.id));
+        }
     });
     
     document.getElementById('threadModal').classList.add('active');
@@ -366,6 +429,43 @@ async function addComment() {
         }
     } catch (e) {
         console.error('Failed to add comment:', e);
+    }
+}
+
+// Edit comment
+async function editComment(commentId, currentContent) {
+    const newContent = prompt('Edit your comment:', currentContent);
+    if (newContent === null || newContent.trim() === '') return; // User cancelled or empty content
+
+    try {
+        await fetch(`${API_BASE}/api/tasks/${currentTaskId}/comments/${commentId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: newContent.trim() })
+        });
+
+        // Thread will be refreshed automatically via WebSocket
+        addLog('success', 'Comment updated successfully');
+    } catch (e) {
+        console.error('Failed to edit comment:', e);
+        addLog('error', 'Failed to edit comment');
+    }
+}
+
+// Delete comment
+async function deleteComment(commentId) {
+    if (!confirm('Are you sure you want to delete this comment?')) return;
+
+    try {
+        await fetch(`${API_BASE}/api/tasks/${currentTaskId}/comments/${commentId}`, {
+            method: 'DELETE'
+        });
+
+        // Thread will be refreshed automatically via WebSocket
+        addLog('success', 'Comment deleted successfully');
+    } catch (e) {
+        console.error('Failed to delete comment:', e);
+        addLog('error', 'Failed to delete comment');
     }
 }
 

@@ -759,6 +759,57 @@ app.post('/api/tasks/:taskId/comments', (req, res) => {
   );
 });
 
+// Edit comment
+app.put('/api/tasks/:taskId/comments/:commentId', (req, res) => {
+  const { content } = req.body;
+  const { taskId, commentId } = req.params;
+  
+  if (!content || content.trim() === '') {
+    return res.status(400).json({ error: 'Comment content is required' });
+  }
+  
+  // First check if comment exists and belongs to this task
+  db.get('SELECT * FROM task_comments WHERE id = ? AND task_id = ?', [commentId, taskId], (err, comment) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!comment) return res.status(404).json({ error: 'Comment not found' });
+    
+    // Update the comment
+    db.run(
+      'UPDATE task_comments SET content = ? WHERE id = ?',
+      [content.trim(), commentId],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        
+        // Get updated comment and broadcast
+        db.get('SELECT * FROM task_comments WHERE id = ?', [commentId], (err, updatedComment) => {
+          broadcast({ type: 'comment_updated', data: updatedComment });
+          res.json(updatedComment);
+        });
+      }
+    );
+  });
+});
+
+// Delete comment
+app.delete('/api/tasks/:taskId/comments/:commentId', (req, res) => {
+  const { taskId, commentId } = req.params;
+  
+  // First check if comment exists and belongs to this task
+  db.get('SELECT * FROM task_comments WHERE id = ? AND task_id = ?', [commentId, taskId], (err, comment) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!comment) return res.status(404).json({ error: 'Comment not found' });
+    
+    // Delete the comment
+    db.run('DELETE FROM task_comments WHERE id = ?', [commentId], function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      // Broadcast deletion
+      broadcast({ type: 'comment_deleted', data: { id: commentId, task_id: taskId } });
+      res.json({ message: 'Comment deleted successfully', id: commentId });
+    });
+  });
+});
+
 // Get single task
 app.get('/api/tasks/:id', (req, res) => {
   db.get('SELECT * FROM tasks WHERE id = ?', [req.params.id], (err, row) => {
