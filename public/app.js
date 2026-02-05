@@ -294,6 +294,9 @@ async function loadTasks() {
         });
 
         updateStats(tasks);
+
+        // Populate tags filter after tasks are loaded
+        populateTagsFilter();
     } catch (error) {
         console.error('Error loading tasks:', error);
     }
@@ -352,7 +355,16 @@ function createTaskCard(task) {
     
     card.addEventListener('dragstart', (e) => handleDragStart(e, task.id));
     card.addEventListener('dragend', handleDragEnd);
-    card.addEventListener('click', () => openTaskThread(task.id));
+    card.addEventListener('click', () => {
+        // Handle focus mode
+        if (focusModeActive) {
+            // Remove focus from all tasks
+            document.querySelectorAll('.task-card').forEach(c => c.classList.remove('focus-target'));
+            // Add focus to clicked task
+            card.classList.add('focus-target');
+        }
+        openTaskThread(task.id);
+    });
     card.addEventListener('dblclick', () => openTaskThread(task.id));
 
     return card;
@@ -750,7 +762,7 @@ function setupEventListeners() {
             }
         });
     }
-    
+
     // Comment input - Enter to send
     const commentInput = document.getElementById('commentInput');
     if (commentInput) {
@@ -761,7 +773,189 @@ function setupEventListeners() {
             }
         });
     }
+
+    // Search and Filters
+    const taskSearch = document.getElementById('taskSearch');
+    const filterPriority = document.getElementById('filterPriority');
+    const filterTags = document.getElementById('filterTags');
+    const focusModeToggle = document.getElementById('focusModeToggle');
+    const clearFilters = document.getElementById('clearFilters');
+    const clearSearch = document.getElementById('clearSearch');
+
+    if (taskSearch) {
+        taskSearch.addEventListener('input', filterTasks);
+    }
+
+    if (filterPriority) {
+        filterPriority.addEventListener('change', filterTasks);
+    }
+
+    if (filterTags) {
+        filterTags.addEventListener('change', filterTasks);
+    }
+
+    if (focusModeToggle) {
+        focusModeToggle.addEventListener('click', toggleFocusMode);
+    }
+
+    if (clearFilters) {
+        clearFilters.addEventListener('click', clearAllFilters);
+    }
+
+    if (clearSearch) {
+        clearSearch.addEventListener('click', () => {
+            taskSearch.value = '';
+            filterTasks();
+        });
+    }
+
+    // Keyboard shortcut for quick add task (Ctrl+Shift+N)
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.shiftKey && e.key === 'N') {
+            e.preventDefault();
+            openTaskModal();
+        }
+    });
 }
+
+// ===== PRODUCTIVITY FEATURES =====
+
+// Filter tasks based on search and dropdown selections
+function filterTasks() {
+    const searchTerm = document.getElementById('taskSearch')?.value.toLowerCase() || '';
+    const priorityFilter = document.getElementById('filterPriority')?.value || '';
+    const tagsFilter = document.getElementById('filterTags')?.value || '';
+
+    // Get all task cards
+    const taskCards = document.querySelectorAll('.task-card');
+
+    taskCards.forEach(card => {
+        const taskData = JSON.parse(card.dataset.taskData || '{}');
+        let visible = true;
+
+        // Search filter
+        if (searchTerm) {
+            const title = (taskData.title || '').toLowerCase();
+            const description = (taskData.description || '').toLowerCase();
+            const tags = (taskData.tags || '').toLowerCase();
+
+            if (!title.includes(searchTerm) &&
+                !description.includes(searchTerm) &&
+                !tags.includes(searchTerm)) {
+                visible = false;
+            }
+        }
+
+        // Priority filter
+        if (priorityFilter && taskData.priority !== priorityFilter) {
+            visible = false;
+        }
+
+        // Tags filter
+        if (tagsFilter) {
+            const taskTags = (taskData.tags || '').split(',').map(t => t.trim().toLowerCase());
+            if (!taskTags.includes(tagsFilter.toLowerCase())) {
+                visible = false;
+            }
+        }
+
+        // Apply visibility
+        card.style.display = visible ? 'block' : 'none';
+    });
+
+    // Update task counts
+    updateFilteredTaskCounts();
+}
+
+// Update task counts after filtering
+function updateFilteredTaskCounts() {
+    const columns = ['backlog', 'progress', 'completed'];
+    columns.forEach(status => {
+        const container = document.getElementById(`${status}Tasks`);
+        if (container) {
+            const visibleCount = container.querySelectorAll('.task-card[style="display: block"], .task-card:not([style*="display: none"])').length;
+            const countEl = document.getElementById(`${status}Count`);
+            if (countEl) {
+                countEl.textContent = visibleCount;
+            }
+        }
+    });
+}
+
+// Toggle focus mode
+let focusModeActive = false;
+function toggleFocusMode() {
+    focusModeActive = !focusModeActive;
+    const kanbanBoard = document.querySelector('.kanban-board');
+    const focusBtn = document.getElementById('focusModeToggle');
+
+    if (focusModeActive) {
+        kanbanBoard.classList.add('focus-mode');
+        focusBtn.classList.add('active');
+        addLog('system', 'Focus mode enabled - click a task to focus');
+    } else {
+        kanbanBoard.classList.remove('focus-mode');
+        focusBtn.classList.remove('active');
+        // Remove focus target from all tasks
+        document.querySelectorAll('.task-card').forEach(card => {
+            card.classList.remove('focus-target');
+        });
+        addLog('system', 'Focus mode disabled');
+    }
+}
+
+// Clear all filters
+function clearAllFilters() {
+    const taskSearch = document.getElementById('taskSearch');
+    const filterPriority = document.getElementById('filterPriority');
+    const filterTags = document.getElementById('filterTags');
+
+    if (taskSearch) taskSearch.value = '';
+    if (filterPriority) filterPriority.value = '';
+    if (filterTags) filterTags.value = '';
+
+    filterTasks();
+    addLog('system', 'All filters cleared');
+}
+
+// Populate tags filter dynamically
+function populateTagsFilter() {
+    const tags = new Set();
+
+    // Collect all unique tags from tasks
+    document.querySelectorAll('.task-card').forEach(card => {
+        const taskData = JSON.parse(card.dataset.taskData || '{}');
+        const taskTags = (taskData.tags || '').split(',').filter(t => t.trim());
+        taskTags.forEach(tag => tags.add(tag.trim()));
+    });
+
+    // Update the tags dropdown
+    const filterTags = document.getElementById('filterTags');
+    if (filterTags) {
+        // Save current selection
+        const currentValue = filterTags.value;
+
+        // Clear options except the first one
+        filterTags.innerHTML = '<option value="">All Tags</option>';
+
+        // Add tags sorted alphabetically
+        Array.from(tags).sort().forEach(tag => {
+            if (tag) {
+                const option = document.createElement('option');
+                option.value = tag;
+                option.textContent = tag;
+                filterTags.appendChild(option);
+            }
+        });
+
+        // Restore selection if it still exists
+        if (tags.has(currentValue)) {
+            filterTags.value = currentValue;
+        }
+    }
+}
+
+// ===== END PRODUCTIVITY FEATURES =====
 
 // Legacy Functions (keep for compatibility)
 async function loadAllData() {
