@@ -352,8 +352,9 @@ function createTaskCard(task) {
     
     card.addEventListener('dragstart', (e) => handleDragStart(e, task.id));
     card.addEventListener('dragend', handleDragEnd);
+    card.addEventListener('click', () => openTaskThread(task.id));
     card.addEventListener('dblclick', () => openTaskThread(task.id));
-    
+
     return card;
 }
 
